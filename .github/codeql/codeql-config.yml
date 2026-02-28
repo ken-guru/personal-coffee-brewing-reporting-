@@ -1,0 +1,4 @@
+name: Advanced CodeQL Config
+
+queries:
+  - uses: security-and-quality
