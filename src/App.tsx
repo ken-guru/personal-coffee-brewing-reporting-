@@ -3,6 +3,7 @@ import { HomePage } from './pages/HomePage';
 import { AddBrewPage } from './pages/AddBrewPage';
 import { EditBrewPage } from './pages/EditBrewPage';
 import { DetailPage } from './pages/DetailPage';
+import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/brew/:id" element={<DetailPage />} />
         <Route path="/brew/:id/edit" element={<EditBrewPage />} />
       </Routes>
+      <PWAInstallPrompt />
     </BrowserRouter>
   );
 }
