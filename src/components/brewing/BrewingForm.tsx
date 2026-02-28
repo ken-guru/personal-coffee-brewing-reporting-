@@ -2,7 +2,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrewingEntry, GrindCoarseness, BrewingMethod, WaterSource } from '../../types/brewing';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -24,7 +24,7 @@ const brewSchema = z.object({
   countryOfOrigin: z.string().min(1, 'Country of origin is required'),
   grindCoarseness: z.enum(['extra-fine', 'fine', 'medium-fine', 'medium', 'medium-coarse', 'coarse', 'extra-coarse'] as const),
   grindEquipment: z.string().min(1, 'Grind equipment is required'),
-  brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
+  brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'aeropress-go', 'kalita', 'siemens-drip', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
   gramsOfCoffee: z.coerce.number().min(1, 'Must be at least 1g').max(1000, 'Max 1000g'),
   millilitersOfWater: z.coerce.number().min(1, 'Must be at least 1ml').max(10000, 'Max 10000ml'),
   waterSource: z.enum(['tap', 'filtered-tap', 'bottled-still', 'bottled-sparkling', 'spring', 'other'] as const),
@@ -63,6 +63,9 @@ const methodOptions: { value: BrewingMethod; label: string }[] = [
   { value: 'pour-over', label: 'Pour Over' },
   { value: 'french-press', label: 'French Press' },
   { value: 'aeropress', label: 'AeroPress' },
+  { value: 'aeropress-go', label: 'Aeropress Go' },
+  { value: 'kalita', label: 'Kalita Hand Brewer' },
+  { value: 'siemens-drip', label: 'Siemens Coffee Brewer' },
   { value: 'espresso', label: 'Espresso' },
   { value: 'moka-pot', label: 'Moka Pot' },
   { value: 'cold-brew', label: 'Cold Brew' },
@@ -78,6 +81,15 @@ const waterOptions: { value: WaterSource; label: string }[] = [
   { value: 'spring', label: 'Spring' },
   { value: 'other', label: 'Other' },
 ];
+
+const coffeeWaterDefaults: Partial<Record<BrewingMethod, { gramsOfCoffee: number; millilitersOfWater: number }>> = {
+  'pour-over': { gramsOfCoffee: 30, millilitersOfWater: 500 },
+  kalita: { gramsOfCoffee: 30, millilitersOfWater: 500 },
+  aeropress: { gramsOfCoffee: 14, millilitersOfWater: 200 },
+  'aeropress-go': { gramsOfCoffee: 14, millilitersOfWater: 200 },
+};
+
+const grindEquipmentSuggestions = ['Knock Aergrind', 'Wilfa Svart'];
 
 function FormField({
   label,
@@ -111,6 +123,7 @@ function FormField({
 export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isFirstRender = useRef(true);
 
   const defaultValues: BrewFormValues = entry
     ? {
@@ -135,8 +148,8 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
         grindCoarseness: 'medium',
         grindEquipment: '',
         brewingMethod: 'pour-over',
-        gramsOfCoffee: 15,
-        millilitersOfWater: 250,
+        gramsOfCoffee: 30,
+        millilitersOfWater: 500,
         waterSource: 'filtered-tap',
         numberOfPeople: 1,
         brewMinutes: 3,
@@ -150,11 +163,27 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     register,
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<BrewFormValues>({
     resolver: zodResolver(brewSchema),
     defaultValues,
   });
+
+  const brewingMethod = watch('brewingMethod');
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const defaults = coffeeWaterDefaults[brewingMethod];
+    if (defaults) {
+      setValue('gramsOfCoffee', defaults.gramsOfCoffee);
+      setValue('millilitersOfWater', defaults.millilitersOfWater);
+    }
+  }, [brewingMethod, setValue]);
 
   const handleFormSubmit = async (data: BrewFormValues) => {
     setIsSubmitting(true);
@@ -222,9 +251,15 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
             <Input
               id="grindEquipment"
               placeholder="e.g. Baratza Encore, Hario"
+              list="grind-equipment-suggestions"
               {...register('grindEquipment')}
               aria-invalid={!!errors.grindEquipment}
             />
+            <datalist id="grind-equipment-suggestions">
+              {grindEquipmentSuggestions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
           </FormField>
         </div>
       </section>
