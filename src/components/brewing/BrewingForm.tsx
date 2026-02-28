@@ -63,7 +63,7 @@ const methodOptions: { value: BrewingMethod; label: string }[] = [
   { value: 'pour-over', label: 'Pour Over' },
   { value: 'french-press', label: 'French Press' },
   { value: 'aeropress', label: 'AeroPress' },
-  { value: 'aeropress-go', label: 'Aeropress Go' },
+  { value: 'aeropress-go', label: 'AeroPress Go' },
   { value: 'kalita', label: 'Kalita Hand Brewer' },
   { value: 'siemens-drip', label: 'Siemens Coffee Brewer' },
   { value: 'espresso', label: 'Espresso' },

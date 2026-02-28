@@ -17,7 +17,7 @@ export function formatBrewingMethod(method: BrewingMethod): string {
     'pour-over': 'Pour Over',
     'french-press': 'French Press',
     aeropress: 'AeroPress',
-    'aeropress-go': 'Aeropress Go',
+    'aeropress-go': 'AeroPress Go',
     kalita: 'Kalita Hand Brewer',
     'siemens-drip': 'Siemens Coffee Brewer',
     espresso: 'Espresso',
