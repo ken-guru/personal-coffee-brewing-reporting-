@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from '../pages/HomePage';
 import { makeEntry } from '../test/fixtures';
+
+// Mock useSharedBrews to avoid async fetch side-effects in these tests
+vi.mock('../hooks/useSharedBrews', () => ({
+  useSharedBrews: () => ({ brews: [], loading: false, error: null }),
+}));
 
 function renderHomePage() {
   return render(

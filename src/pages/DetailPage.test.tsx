@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { DetailPage } from '../pages/DetailPage';
@@ -103,5 +103,51 @@ describe('DetailPage', () => {
     renderDetailPage('entry-abc');
     expect(screen.getByText('Guest Ratings (1)')).toBeInTheDocument();
     expect(screen.getByText('"Amazing!"')).toBeInTheDocument();
+  });
+
+  it('shows the Share button', () => {
+    const entry = makeEntry({ id: 'entry-abc' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    renderDetailPage('entry-abc');
+    expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
+  });
+
+  it('opens the share dialog with the share URL on success', async () => {
+    const entry = makeEntry({ id: 'entry-abc' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ shareId: 'test-id', shareUrl: 'https://example.com/shared/test-id', sharedAt: new Date().toISOString() }),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderDetailPage('entry-abc');
+    fireEvent.click(screen.getByRole('button', { name: /share/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Brew shared!')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://example.com/shared/test-id')).toBeInTheDocument();
+  });
+
+  it('shows an error message in the share dialog when sharing fails', async () => {
+    const entry = makeEntry({ id: 'entry-abc' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({ error: 'Storage not configured' }),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderDetailPage('entry-abc');
+    fireEvent.click(screen.getByRole('button', { name: /share/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Sharing failed')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Storage not configured')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Edit2, Trash2, ChevronLeft } from 'lucide-react';
+import { Edit2, Trash2, ChevronLeft, Share2, Copy, Check } from 'lucide-react';
 import { useBrewingEntries } from '../hooks/useBrewingEntries';
 import { BrewingDetail } from '../components/brewing/BrewingDetail';
 import { Layout } from '../components/layout/Layout';
@@ -20,6 +20,11 @@ export function DetailPage() {
   const navigate = useNavigate();
   const { entries, removeEntry } = useBrewingEntries();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const entry = entries.find((e) => e.id === id);
 
@@ -41,6 +46,41 @@ export function DetailPage() {
     navigate('/');
   };
 
+  const handleShare = async () => {
+    setSharing(true);
+    setShareError(null);
+    try {
+      const res = await fetch('/api/brews/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Failed to share brew');
+      }
+      const data = await res.json() as { shareUrl: string };
+      setShareUrl(data.shareUrl);
+      setShareOpen(true);
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Failed to share brew');
+      setShareOpen(true);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select the text
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -52,6 +92,10 @@ export function DetailPage() {
             </Link>
           </Button>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
+              <Share2 className="h-4 w-4 mr-1" aria-hidden="true" />
+              {sharing ? 'Sharing…' : 'Share'}
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to={`/brew/${entry.id}/edit`}>
                 <Edit2 className="h-4 w-4 mr-1" aria-hidden="true" />
@@ -85,6 +129,37 @@ export function DetailPage() {
             </Dialog>
           </div>
         </div>
+
+        {/* Share result dialog */}
+        <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{shareError ? 'Sharing failed' : 'Brew shared!'}</DialogTitle>
+              <DialogDescription>
+                {shareError
+                  ? shareError
+                  : 'Anyone with this link can view your brew. No personal information is stored.'}
+              </DialogDescription>
+            </DialogHeader>
+            {shareUrl && !shareError && (
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  aria-label="Share URL"
+                  onFocus={(e) => e.target.select()}
+                />
+                <Button variant="outline" size="icon" onClick={handleCopyLink} aria-label="Copy link">
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setShareOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <BrewingDetail entry={entry} />
       </div>
