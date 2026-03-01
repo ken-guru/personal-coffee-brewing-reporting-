@@ -36,6 +36,11 @@ export function BrewingCard({ entry }: BrewingCardProps) {
                 <Badge variant="outline" className="text-xs shrink-0">
                   {entry.countryOfOrigin}
                 </Badge>
+                {entry.coffeeVariety && (
+                  <Badge variant="outline" className="text-xs shrink-0 italic font-normal">
+                    {entry.coffeeVariety}
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <Coffee className="h-3 w-3 text-primary shrink-0" aria-hidden="true" />

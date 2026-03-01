@@ -31,6 +31,7 @@ export function EditBrewPage() {
       updatedAt: new Date().toISOString(),
       coffeeProducer: data.coffeeProducer,
       countryOfOrigin: data.countryOfOrigin,
+      coffeeVariety: data.coffeeVariety || undefined,
       grindCoarseness: data.grindCoarseness,
       grindEquipment: data.grindEquipment,
       brewingMethod: data.brewingMethod,
