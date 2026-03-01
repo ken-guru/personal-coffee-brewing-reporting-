@@ -29,6 +29,19 @@ npm run dev
 | `npm test` | Run the test suite |
 | `npm run lint` | Run ESLint |
 
+## Repository Settings
+
+### Automatically delete head branches after merge
+
+GitHub has a built-in setting to delete the source branch automatically whenever a pull request is merged. To enable it:
+
+1. Go to the repository on GitHub.
+2. Click **Settings** (top navigation tab).
+3. Scroll down to the **Pull Requests** section.
+4. Tick **Automatically delete head branches**.
+
+Once enabled, GitHub will delete the PR's head branch immediately after it is merged, with no workflow required.
+
 ## Tech Stack
 
 - React 19 + TypeScript
