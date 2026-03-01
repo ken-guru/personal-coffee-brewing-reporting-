@@ -7,7 +7,12 @@ type VRes = ServerResponse & {
   json: (data: unknown) => void;
 };
 
-export default async function handler(_req: VReq, res: VRes) {
+export default async function handler(req: VReq, res: VRes) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
   // When Vercel Blob is not configured (e.g. local dev), return an empty list
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     res.status(200).json({ brews: [] });
@@ -31,7 +36,10 @@ export default async function handler(_req: VReq, res: VRes) {
       }),
     );
 
-    const brews = results.filter(Boolean);
+    // Sort newest-first and remove any nulls from failed fetches
+    const brews = (results.filter(Boolean) as Array<{ sharedAt?: string }>).sort(
+      (a, b) => new Date(b.sharedAt ?? 0).getTime() - new Date(a.sharedAt ?? 0).getTime(),
+    );
 
     res.status(200).json({ brews });
   } catch (err) {

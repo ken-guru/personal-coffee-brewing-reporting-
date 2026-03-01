@@ -41,6 +41,15 @@ export default async function handler(req: VReq, res: VRes) {
       return;
     }
 
+    // Build the share URL from the request headers first, before writing to storage
+    const proto = (req.headers['x-forwarded-proto'] as string | undefined) ?? 'https';
+    const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
+    if (!host) {
+      res.status(500).json({ error: 'Unable to determine server host for share URL' });
+      return;
+    }
+    const baseUrl = `${proto}://${host}`;
+
     const shareId = generateShareId();
     const sharedAt = new Date().toISOString();
 
@@ -71,15 +80,6 @@ export default async function handler(req: VReq, res: VRes) {
       addRandomSuffix: false,
       allowOverwrite: false,
     });
-
-    // Build the share URL from the request headers
-    const proto = (req.headers['x-forwarded-proto'] as string | undefined) ?? 'https';
-    const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
-    if (!host) {
-      res.status(500).json({ error: 'Unable to determine server host for share URL' });
-      return;
-    }
-    const baseUrl = `${proto}://${host}`;
 
     res.status(201).json({
       shareId,

@@ -26,13 +26,15 @@ export default async function handler(req: VReq, res: VRes) {
 
   try {
     const { blobs } = await list({ prefix: `brew-${id}.json`, limit: 1 });
+    const expectedName = `brew-${id}.json`;
+    const blob = blobs.find((b) => b.pathname === expectedName || b.pathname.endsWith(`/${expectedName}`));
 
-    if (blobs.length === 0) {
+    if (!blob) {
       res.status(404).json({ error: 'Brew not found' });
       return;
     }
 
-    const fetchRes = await fetch(blobs[0].url);
+    const fetchRes = await fetch(blob.url);
     if (!fetchRes.ok) {
       res.status(404).json({ error: 'Brew not found' });
       return;
