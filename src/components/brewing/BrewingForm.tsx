@@ -422,16 +422,13 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
 
   const handleNext = () => {
     const values = getValues();
-    console.log('[handleNext] step:', step, 'values:', JSON.stringify({ coffeeProducer: values.coffeeProducer, countryOfOrigin: values.countryOfOrigin, grindEquipment: values.grindEquipment, rating: values.rating }));
     const schema = stepSchemas[step];
     if (!schema) { setStep((s) => Math.min(STEPS.length - 1, s + 1)); return; }
     const result = schema.safeParse(values);
-    console.log('[handleNext] safeParse result:', result.success, result.success ? 'OK' : JSON.stringify((result as { success: false; error: { issues: unknown[] } }).error.issues));
     if (result.success) {
       setStep((s) => Math.min(STEPS.length - 1, s + 1));
     } else {
-      // Surface validation errors for the current step's fields
-      for (const issue of (result as { success: false; error: { issues: Array<{ path: (string|number)[]; message: string }> } }).error.issues) {
+      for (const issue of result.error.issues) {
         const field = issue.path[0] as keyof BrewFormValues;
         if (field) setError(field, { type: 'manual', message: issue.message });
       }
