@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { HomePage } from './pages/HomePage';
 import { AddBrewPage } from './pages/AddBrewPage';
 import { EditBrewPage } from './pages/EditBrewPage';
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/brew/:id/edit" element={<EditBrewPage />} />
       </Routes>
       <PWAInstallPrompt />
+      <Analytics />
     </BrowserRouter>
   );
 }
