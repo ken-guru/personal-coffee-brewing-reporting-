@@ -40,6 +40,7 @@ export interface BrewingEntry {
   updatedAt: string; // ISO date
   coffeeProducer: string;
   countryOfOrigin: string;
+  coffeeVariety?: string;
   grindCoarseness: GrindCoarseness;
   grindEquipment: string;
   brewingMethod: BrewingMethod;

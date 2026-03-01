@@ -35,6 +35,7 @@ import {
 const brewSchema = z.object({
   coffeeProducer: z.string().min(1, 'Coffee producer is required'),
   countryOfOrigin: z.string().min(1, 'Country of origin is required'),
+  coffeeVariety: z.string().optional(),
   grindCoarseness: z.enum(['extra-fine', 'fine', 'medium-fine', 'medium', 'medium-coarse', 'coarse', 'extra-coarse'] as const),
   grindEquipment: z.string().min(1, 'Grind equipment is required'),
   brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'aeropress-go', 'kalita', 'siemens-drip', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
@@ -98,6 +99,23 @@ const waterOptions: { value: WaterSource; label: string; Icon: React.FC<{ classN
 ];
 
 const grindEquipmentSuggestions = ['Knock Aergrind', 'Wilfa Svart'];
+
+const coffeeVarietySuggestions = [
+  'Geisha',
+  'Catuaí',
+  'Red Catuaí',
+  'Yellow Catuaí',
+  'Bourbon',
+  'Typica',
+  'Caturra',
+  'SL28',
+  'SL34',
+  'Ethiopian Heirloom',
+  'Wush Wush',
+  'Pacamara',
+  'Maragogipe',
+  'Mundo Novo',
+];
 
 const coffeeWaterDefaults: Partial<Record<BrewingMethod, { gramsOfCoffee: number; millilitersOfWater: number }>> = {
   'pour-over':    { gramsOfCoffee: 30, millilitersOfWater: 500 },
@@ -363,6 +381,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     ? {
         coffeeProducer:     entry.coffeeProducer,
         countryOfOrigin:    entry.countryOfOrigin,
+        coffeeVariety:      entry.coffeeVariety ?? '',
         grindCoarseness:    entry.grindCoarseness,
         grindEquipment:     entry.grindEquipment,
         brewingMethod:      entry.brewingMethod,
@@ -379,6 +398,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     : {
         coffeeProducer:     '',
         countryOfOrigin:    '',
+        coffeeVariety:      '',
         grindCoarseness:    'medium',
         grindEquipment:     '',
         brewingMethod:      'pour-over',
@@ -478,6 +498,21 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                 className="text-base"
               />
               <FieldError message={errors.countryOfOrigin?.message} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coffeeVariety">
+                Variety <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
+              <Input
+                id="coffeeVariety"
+                placeholder="e.g. Geisha, Catuaí, Bourbon"
+                list="coffee-variety-suggestions"
+                {...register('coffeeVariety')}
+                className="text-base"
+              />
+              <datalist id="coffee-variety-suggestions">
+                {coffeeVarietySuggestions.map((s) => <option key={s} value={s} />)}
+              </datalist>
             </div>
           </div>
         </div>
