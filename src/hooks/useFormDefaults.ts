@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { getEntries } from '../lib/storage';
 import { useSharedBrews } from './useSharedBrews';
 import type { BrewingMethod, GrindCoarseness, WaterSource } from '../types/brewing';
@@ -69,12 +69,14 @@ export interface FormDefaults {
  * 3. Static fallback constants
  */
 export function useFormDefaults() {
-  // Read localStorage once on mount (stable reference across renders)
-  const localEntries = useRef(
-    getEntries().sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    ),
-  ).current;
+  // Read localStorage once on mount; sort newest-first for priority lookup
+  const localEntries = useMemo(
+    () =>
+      getEntries().sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [],
+  );
 
   const { brews: sharedBrews, loading } = useSharedBrews();
 

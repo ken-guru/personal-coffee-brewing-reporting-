@@ -255,7 +255,7 @@ describe('useFormDefaults', () => {
     expect(result.current.suggestions.grindEquipments).toContain('RemoteGrinder');
   });
 
-  it('prioritises localStorage over shared brews for defaults', async () => {
+  it('prioritizes localStorage over shared brews for defaults', async () => {
     const localEntry = makeEntry({
       coffeeProducer: 'Local Producer',
       countryOfOrigin: 'Ethiopia',

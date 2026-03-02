@@ -421,7 +421,9 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
   // most-popular shared-brew values as defaults (only once, and only if the
   // user has not yet modified the form).
   useEffect(() => {
-    if (entry || hasLocalData || defaultsLoading || isDirty || sharedDefaultsApplied.current) return;
+    const alreadyHasData = entry || hasLocalData;
+    const notReadyOrUsed = defaultsLoading || isDirty || sharedDefaultsApplied.current;
+    if (alreadyHasData || notReadyOrUsed) return;
     sharedDefaultsApplied.current = true;
     reset({
       coffeeProducer:     formDefaults.coffeeProducer,
