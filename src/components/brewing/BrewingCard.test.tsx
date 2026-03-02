@@ -39,15 +39,35 @@ describe('BrewingCard', () => {
     expect(screen.getByText('3:05')).toBeInTheDocument();
   });
 
-  it('displays N/A when brew time is null', () => {
+  it('does not show brew time when brew time is null', () => {
     renderCard({ brewTimeSeconds: null });
-    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.queryByText('N/A')).not.toBeInTheDocument();
   });
 
-  it('displays coffee and water amounts with ratio', () => {
-    renderCard({ gramsOfCoffee: 15, millilitersOfWater: 250 });
+  it('displays coffee and water amounts with water source and ratio', () => {
+    renderCard({ gramsOfCoffee: 15, millilitersOfWater: 250, waterSource: 'filtered-tap' });
     // ratio = 250/15 = 16.7
-    expect(screen.getByText(/15g · 250ml · 1:16\.7/)).toBeInTheDocument();
+    expect(screen.getByText(/15g · 250ml \(Filtered Tap\) · 1:16\.7/)).toBeInTheDocument();
+  });
+
+  it('displays the grind equipment', () => {
+    renderCard({ grindEquipment: 'Baratza Encore' });
+    expect(screen.getByText('Baratza Encore')).toBeInTheDocument();
+  });
+
+  it('shows "Shared" badge when isShared is true', () => {
+    const entry = makeEntry();
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} isShared />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Shared')).toBeInTheDocument();
+  });
+
+  it('does not show "Shared" badge when isShared is false', () => {
+    renderCard();
+    expect(screen.queryByText('Shared')).not.toBeInTheDocument();
   });
 
   it('shows guest rating count when guests are present', () => {

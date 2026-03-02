@@ -3,10 +3,35 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from '../pages/HomePage';
 import { makeEntry } from '../test/fixtures';
+import type { SharedBrew } from '../types/sharedBrew';
 
-// Mock useSharedBrews to avoid async fetch side-effects in these tests
+function makeSharedBrew(overrides: Partial<SharedBrew> = {}): SharedBrew {
+  return {
+    shareId: 'shared-1',
+    sharedAt: '2024-03-15T10:00:00.000Z',
+    brew: {
+      coffeeProducer: 'Community Roaster',
+      countryOfOrigin: 'Colombia',
+      grindCoarseness: 'medium',
+      grindEquipment: 'Baratza Encore',
+      brewingMethod: 'pour-over',
+      gramsOfCoffee: 15,
+      millilitersOfWater: 250,
+      waterSource: 'filtered-tap',
+      numberOfPeople: 1,
+      brewTimeSeconds: 180,
+      rating: 4,
+      guestRatings: [],
+    },
+    ...overrides,
+  };
+}
+
+// Default mock: no shared brews
+let mockSharedBrews: SharedBrew[] = [];
+
 vi.mock('../hooks/useSharedBrews', () => ({
-  useSharedBrews: () => ({ brews: [], loading: false, error: null }),
+  useSharedBrews: () => ({ brews: mockSharedBrews, loading: false, error: null }),
 }));
 
 function renderHomePage() {
@@ -20,6 +45,7 @@ function renderHomePage() {
 describe('HomePage', () => {
   beforeEach(() => {
     localStorage.clear();
+    mockSharedBrews = [];
   });
 
   it('shows the "My Brews" heading', () => {
@@ -76,5 +102,44 @@ describe('HomePage', () => {
     localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
     renderHomePage();
     expect(screen.getByText(/avg 4\.0★/)).toBeInTheDocument();
+  });
+
+  it('shows community brew session count and average rating', () => {
+    mockSharedBrews = [
+      makeSharedBrew({ shareId: 'c1', brew: { ...makeSharedBrew().brew, rating: 4 } }),
+      makeSharedBrew({ shareId: 'c2', brew: { ...makeSharedBrew().brew, rating: 2 } }),
+    ];
+    renderHomePage();
+    expect(screen.getByText(/2 sessions logged/)).toBeInTheDocument();
+    expect(screen.getByText(/avg 3\.0★/)).toBeInTheDocument();
+  });
+
+  it('excludes community brews that duplicate a local entry', () => {
+    const entry = makeEntry({ id: 'shared-1', coffeeProducer: 'Local Roaster' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    mockSharedBrews = [
+      makeSharedBrew({ shareId: 'shared-1', brew: { ...makeSharedBrew().brew, coffeeProducer: 'Local Roaster' } }),
+    ];
+    renderHomePage();
+    // The producer name appears once (in My Brews), not twice
+    expect(screen.getAllByText('Local Roaster')).toHaveLength(1);
+    // Community section shows no-brews message
+    expect(screen.getByText(/No community brews shared yet/)).toBeInTheDocument();
+  });
+
+  it('shows "Shared" badge on local brews that have been shared', () => {
+    const entry = makeEntry({ id: 'shared-1' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    mockSharedBrews = [makeSharedBrew({ shareId: 'shared-1' })];
+    renderHomePage();
+    expect(screen.getByText('Shared')).toBeInTheDocument();
+  });
+
+  it('does not show "Shared" badge on local brews that have not been shared', () => {
+    const entry = makeEntry({ id: 'local-only' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    mockSharedBrews = [];
+    renderHomePage();
+    expect(screen.queryByText('Shared')).not.toBeInTheDocument();
   });
 });
