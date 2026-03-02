@@ -464,6 +464,9 @@ function Stepper({
 }) {
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  // Set to true before any explicit commit or cancel so the subsequent onBlur
+  // (fired when the input unmounts) does not double-commit or override the cancel.
+  const skipNextBlurRef = useRef(false);
 
   const startEdit = () => {
     setInputValue(String(value));
@@ -497,10 +500,23 @@ function Stepper({
             min={min}
             max={max}
             onChange={(e) => setInputValue(e.target.value)}
-            onBlur={commitEdit}
+            onBlur={() => {
+              if (skipNextBlurRef.current) {
+                skipNextBlurRef.current = false;
+              } else {
+                commitEdit();
+              }
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
-              if (e.key === 'Escape') setEditing(false);
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                skipNextBlurRef.current = true;
+                commitEdit();
+              }
+              if (e.key === 'Escape') {
+                skipNextBlurRef.current = true;
+                setEditing(false);
+              }
             }}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
@@ -881,7 +897,8 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                 onChange={(newCoffee) => {
                   setValue('gramsOfCoffee', newCoffee);
                   if (maintainRatio && gramsOfCoffee > 0 && milliliters > 0) {
-                    setValue('millilitersOfWater', Math.min(10000, Math.max(1, Math.ceil(newCoffee * (milliliters / gramsOfCoffee)))));
+                    const ratio = milliliters / gramsOfCoffee;
+                    setValue('millilitersOfWater', Math.min(10000, Math.max(1, Math.ceil(newCoffee * ratio))));
                   }
                 }}
                 min={1}
@@ -901,7 +918,8 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                 onChange={(newWater) => {
                   setValue('millilitersOfWater', newWater);
                   if (maintainRatio && gramsOfCoffee > 0 && milliliters > 0) {
-                    setValue('gramsOfCoffee', Math.min(1000, Math.max(1, Math.ceil(newWater / (milliliters / gramsOfCoffee)))));
+                    const ratio = milliliters / gramsOfCoffee;
+                    setValue('gramsOfCoffee', Math.min(1000, Math.max(1, Math.ceil(newWater / ratio))));
                   }
                 }}
                 min={1}
