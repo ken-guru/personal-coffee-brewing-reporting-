@@ -35,6 +35,7 @@ describe('PWAInstallPrompt', () => {
     expect(screen.getByText('Install BrewLog')).toBeInTheDocument();
     expect(screen.getByText(/Add to your home screen/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /install app/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /dismiss install prompt/i })).toBeInTheDocument();
   });
 
@@ -43,6 +44,13 @@ describe('PWAInstallPrompt', () => {
     render(<PWAInstallPrompt />);
     fireEvent.click(screen.getByRole('button', { name: /install app/i }));
     expect(mockHandleInstall).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls handleDismiss when Discard button is clicked', () => {
+    mockIsVisible = true;
+    render(<PWAInstallPrompt />);
+    fireEvent.click(screen.getByRole('button', { name: /discard/i }));
+    expect(mockHandleDismiss).toHaveBeenCalledTimes(1);
   });
 
   it('calls handleDismiss when dismiss button is clicked', () => {

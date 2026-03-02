@@ -3,18 +3,31 @@ import { Plus, Coffee, TrendingUp, Globe } from 'lucide-react';
 import { useBrewingEntries } from '../hooks/useBrewingEntries';
 import { useSharedBrews } from '../hooks/useSharedBrews';
 import { BrewingCard } from '../components/brewing/BrewingCard';
+import { SharedBrewCard } from '../components/brewing/SharedBrewCard';
 import { Button } from '../components/ui/Button';
 import { Layout } from '../components/layout/Layout';
-import { Badge } from '../components/ui/Badge';
-import { formatBrewingMethod } from '../lib/utils';
 
 export function HomePage() {
   const { entries } = useBrewingEntries();
   const { brews: sharedBrews, loading: sharedLoading, error: sharedError } = useSharedBrews();
 
+  // IDs of local entries that have been shared to the community
+  const localEntryIds = new Set(entries.map((e) => e.id));
+  const sharedEntryIds = new Set(
+    sharedBrews.filter((s) => localEntryIds.has(s.shareId)).map((s) => s.shareId)
+  );
+
+  // Community brews that are NOT duplicates of local entries
+  const communityBrews = sharedBrews.filter((s) => !localEntryIds.has(s.shareId));
+
   const avgRating =
     entries.length > 0
       ? (entries.reduce((sum, e) => sum + e.rating, 0) / entries.length).toFixed(1)
+      : null;
+
+  const communityAvgRating =
+    communityBrews.length > 0
+      ? (communityBrews.reduce((sum, s) => sum + s.brew.rating, 0) / communityBrews.length).toFixed(1)
       : null;
 
   return (
@@ -70,7 +83,7 @@ export function HomePage() {
           ) : (
             <div className="space-y-3">
               {entries.map((entry) => (
-                <BrewingCard key={entry.id} entry={entry} />
+                <BrewingCard key={entry.id} entry={entry} isShared={sharedEntryIds.has(entry.id)} />
               ))}
             </div>
           )}
@@ -83,6 +96,18 @@ export function HomePage() {
             <h2 className="text-xl font-bold text-foreground">Community Brews</h2>
           </div>
 
+          {!sharedLoading && !sharedError && communityBrews.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {communityBrews.length} session{communityBrews.length !== 1 ? 's' : ''} logged
+              {communityAvgRating && (
+                <span className="ml-2 inline-flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                  avg {communityAvgRating}★
+                </span>
+              )}
+            </p>
+          )}
+
           {sharedLoading && (
             <p className="text-sm text-muted-foreground">Loading community brews…</p>
           )}
@@ -91,50 +116,14 @@ export function HomePage() {
             <p className="text-sm text-muted-foreground">Community brews unavailable.</p>
           )}
 
-          {!sharedLoading && !sharedError && sharedBrews.length === 0 && (
+          {!sharedLoading && !sharedError && communityBrews.length === 0 && (
             <p className="text-sm text-muted-foreground">No community brews shared yet. Be the first!</p>
           )}
 
-          {!sharedLoading && !sharedError && sharedBrews.length > 0 && (
+          {!sharedLoading && !sharedError && communityBrews.length > 0 && (
             <div className="space-y-3">
-              {sharedBrews.map((shared) => (
-                <Link
-                  key={shared.shareId}
-                  to={`/shared/${shared.shareId}`}
-                  className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
-                  aria-label={`View shared ${shared.brew.coffeeProducer} brew`}
-                >
-                  <div className="rounded-xl border border-border bg-card p-4 hover:border-primary/50 transition-colors cursor-pointer">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-card-foreground truncate">
-                            {shared.brew.coffeeProducer}
-                          </span>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {shared.brew.countryOfOrigin}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Coffee className="h-3 w-3 text-primary shrink-0" aria-hidden="true" />
-                          <span className="text-sm text-muted-foreground">
-                            {formatBrewingMethod(shared.brew.brewingMethod)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-sm font-medium text-foreground">
-                        {shared.brew.rating}★
-                      </div>
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {new Date(shared.sharedAt).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </div>
-                  </div>
-                </Link>
+              {communityBrews.map((shared) => (
+                <SharedBrewCard key={shared.shareId} shared={shared} />
               ))}
             </div>
           )}

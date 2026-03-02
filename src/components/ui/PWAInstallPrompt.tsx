@@ -24,14 +24,22 @@ export function PWAInstallPrompt() {
           <p className="mt-0.5 text-xs text-muted-foreground">
             Add to your home screen for quick access and offline support.
           </p>
-          <Button
-            variant="default"
-            size="sm"
-            className="mt-2"
-            onClick={handleInstall}
-          >
-            Install App
-          </Button>
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleInstall}
+            >
+              Install App
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+            >
+              Discard
+            </Button>
+          </div>
         </div>
       </div>
       <Button
