@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, Fragment } from 'react';
+import { useFormDefaults } from '../../hooks/useFormDefaults';
 import { BrewingEntry, GrindCoarseness, BrewingMethod, WaterSource } from '../../types/brewing';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -96,25 +97,6 @@ const waterOptions: { value: WaterSource; label: string; Icon: React.FC<{ classN
   { value: 'bottled-sparkling', label: 'Sparkling',    Icon: BottledSparklingIcon },
   { value: 'spring',            label: 'Spring',       Icon: SpringWaterIcon      },
   { value: 'other',             label: 'Other',        Icon: OtherWaterIcon       },
-];
-
-const grindEquipmentSuggestions = ['Knock Aergrind', 'Wilfa Svart'];
-
-const coffeeVarietySuggestions = [
-  'Geisha',
-  'Catuaí',
-  'Red Catuaí',
-  'Yellow Catuaí',
-  'Bourbon',
-  'Typica',
-  'Caturra',
-  'SL28',
-  'SL34',
-  'Ethiopian Heirloom',
-  'Wush Wush',
-  'Pacamara',
-  'Maragogipe',
-  'Mundo Novo',
 ];
 
 const coffeeWaterDefaults: Partial<Record<BrewingMethod, { gramsOfCoffee: number; millilitersOfWater: number }>> = {
@@ -376,6 +358,9 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isFirstRender = useRef(true);
+  const sharedDefaultsApplied = useRef(false);
+
+  const { suggestions, defaults: formDefaults, loading: defaultsLoading, hasLocalData } = useFormDefaults();
 
   const defaultValues: BrewFormValues = entry
     ? {
@@ -396,18 +381,18 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
         guestRatings:       entry.guestRatings,
       }
     : {
-        coffeeProducer:     '',
-        countryOfOrigin:    '',
-        coffeeVariety:      '',
-        grindCoarseness:    'medium',
-        grindEquipment:     '',
-        brewingMethod:      'pour-over',
-        gramsOfCoffee:      30,
-        millilitersOfWater: 500,
-        waterSource:        'filtered-tap',
-        numberOfPeople:     1,
-        brewMinutes:        3,
-        brewSeconds:        0,
+        coffeeProducer:     formDefaults.coffeeProducer,
+        countryOfOrigin:    formDefaults.countryOfOrigin,
+        coffeeVariety:      formDefaults.coffeeVariety,
+        grindCoarseness:    formDefaults.grindCoarseness,
+        grindEquipment:     formDefaults.grindEquipment,
+        brewingMethod:      formDefaults.brewingMethod,
+        gramsOfCoffee:      formDefaults.gramsOfCoffee,
+        millilitersOfWater: formDefaults.millilitersOfWater,
+        waterSource:        formDefaults.waterSource,
+        numberOfPeople:     formDefaults.numberOfPeople,
+        brewMinutes:        formDefaults.brewMinutes,
+        brewSeconds:        formDefaults.brewSeconds,
         rating:             0,
         comment:            '',
         guestRatings:       [],
@@ -421,7 +406,8 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     setValue,
     setError,
     getValues,
-    formState: { errors },
+    reset,
+    formState: { errors, isDirty },
   } = useForm<BrewFormValues>({ resolver: zodResolver(brewSchema), defaultValues });
 
   const brewingMethod  = watch('brewingMethod');
@@ -430,6 +416,31 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
   const milliliters    = watch('millilitersOfWater');
   const brewMinutes    = watch('brewMinutes');
   const brewSeconds    = watch('brewSeconds');
+
+  // When shared brews finish loading and there is no local data, apply the
+  // most-popular shared-brew values as defaults (only once, and only if the
+  // user has not yet modified the form).
+  useEffect(() => {
+    if (entry || hasLocalData || defaultsLoading || isDirty || sharedDefaultsApplied.current) return;
+    sharedDefaultsApplied.current = true;
+    reset({
+      coffeeProducer:     formDefaults.coffeeProducer,
+      countryOfOrigin:    formDefaults.countryOfOrigin,
+      coffeeVariety:      formDefaults.coffeeVariety,
+      grindCoarseness:    formDefaults.grindCoarseness,
+      grindEquipment:     formDefaults.grindEquipment,
+      brewingMethod:      formDefaults.brewingMethod,
+      gramsOfCoffee:      formDefaults.gramsOfCoffee,
+      millilitersOfWater: formDefaults.millilitersOfWater,
+      waterSource:        formDefaults.waterSource,
+      numberOfPeople:     formDefaults.numberOfPeople,
+      brewMinutes:        formDefaults.brewMinutes,
+      brewSeconds:        formDefaults.brewSeconds,
+      rating:             0,
+      comment:            '',
+      guestRatings:       [],
+    });
+  }, [entry, hasLocalData, defaultsLoading, isDirty, formDefaults, reset]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -480,10 +491,14 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <Input
                 id="coffeeProducer"
                 placeholder="e.g. Stumptown, Blue Bottle"
+                list="coffee-producer-suggestions"
                 {...register('coffeeProducer')}
                 aria-invalid={!!errors.coffeeProducer}
                 className="text-base"
               />
+              <datalist id="coffee-producer-suggestions">
+                {suggestions.coffeeProducers.map((s) => <option key={s} value={s} />)}
+              </datalist>
               <FieldError message={errors.coffeeProducer?.message} />
             </div>
             <div className="space-y-2">
@@ -493,10 +508,14 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <Input
                 id="countryOfOrigin"
                 placeholder="e.g. Ethiopia, Colombia"
+                list="country-of-origin-suggestions"
                 {...register('countryOfOrigin')}
                 aria-invalid={!!errors.countryOfOrigin}
                 className="text-base"
               />
+              <datalist id="country-of-origin-suggestions">
+                {suggestions.countriesOfOrigin.map((s) => <option key={s} value={s} />)}
+              </datalist>
               <FieldError message={errors.countryOfOrigin?.message} />
             </div>
             <div className="space-y-2">
@@ -511,7 +530,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                 className="text-base"
               />
               <datalist id="coffee-variety-suggestions">
-                {coffeeVarietySuggestions.map((s) => <option key={s} value={s} />)}
+                {suggestions.coffeeVarieties.map((s) => <option key={s} value={s} />)}
               </datalist>
             </div>
           </div>
@@ -560,7 +579,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               className="text-base"
             />
             <datalist id="grind-equipment-suggestions">
-              {grindEquipmentSuggestions.map((s) => <option key={s} value={s} />)}
+              {suggestions.grindEquipments.map((s) => <option key={s} value={s} />)}
             </datalist>
             <FieldError message={errors.grindEquipment?.message} />
           </div>
