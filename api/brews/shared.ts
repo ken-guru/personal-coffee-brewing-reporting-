@@ -20,7 +20,7 @@ export default async function handler(req: VReq, res: VRes) {
   }
 
   try {
-    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'public' ? 'public' : 'private';
+    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'private' ? 'private' : 'public';
     const { blobs } = await list({ prefix: 'brew-', limit: 50 });
 
     // Fetch the content of each blob in parallel to get brew summaries

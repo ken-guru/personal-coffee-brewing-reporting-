@@ -76,11 +76,16 @@ export default async function handler(req: VReq, res: VRes) {
         brewTimeSeconds: body.brewTimeSeconds,
         rating: body.rating,
         comment: body.comment,
-        guestRatings: Array.isArray(body.guestRatings) ? body.guestRatings : [],
+        guestRatings: Array.isArray(body.guestRatings)
+          ? (body.guestRatings as Array<{ id?: unknown; rating?: unknown; comment?: unknown }>).map((g) => ({
+              rating: g.rating,
+              ...(g.comment !== undefined ? { comment: g.comment } : {}),
+            }))
+          : [],
       },
     };
 
-    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'public' ? 'public' : 'private';
+    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'private' ? 'private' : 'public';
 
     await put(`brew-${shareId}.json`, JSON.stringify(sharedBrew), {
       access,

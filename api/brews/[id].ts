@@ -25,7 +25,7 @@ export default async function handler(req: VReq, res: VRes) {
   }
 
   try {
-    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'public' ? 'public' : 'private';
+    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'private' ? 'private' : 'public';
     const result = await get(`brew-${id}.json`, { access });
 
     if (!result) {

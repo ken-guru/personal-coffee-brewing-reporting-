@@ -183,6 +183,31 @@ describe('POST /api/brews/share', () => {
     expect(stored.brew).not.toHaveProperty('updatedAt');
   });
 
+  it('strips internal id from guest ratings in stored payload', async () => {
+    const req = makeReq({
+      body: {
+        ...validBrewBody,
+        guestRatings: [
+          { id: 'local-guest-1', rating: 3, comment: 'Nice' },
+          { id: 'local-guest-2', rating: 5 },
+        ],
+      },
+      headers: { host: 'myapp.vercel.app' },
+    });
+    const { res, lastStatus } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(201);
+
+    const storedJson = mockPut.mock.calls[0][1] as string;
+    const stored = JSON.parse(storedJson) as { brew: { guestRatings: Array<Record<string, unknown>> } };
+    expect(stored.brew.guestRatings).toHaveLength(2);
+    for (const guest of stored.brew.guestRatings) {
+      expect(guest).not.toHaveProperty('id');
+    }
+    expect(stored.brew.guestRatings[0]).toMatchObject({ rating: 3, comment: 'Nice' });
+    expect(stored.brew.guestRatings[1]).toMatchObject({ rating: 5 });
+  });
+
   it('returns 500 when blob storage throws', async () => {
     mockPut.mockRejectedValueOnce(new Error('Blob store error'));
     const req = makeReq({
@@ -219,23 +244,8 @@ describe('POST /api/brews/share', () => {
     expect((lastBody() as { error: string }).error).toMatch(/not found/i);
   });
 
-  it('uses public access when BLOB_ACCESS is set to public', async () => {
-    process.env.BLOB_ACCESS = 'public';
-    const req = makeReq({
-      body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
-    });
-    const { res, lastStatus } = makeRes();
-    await handler(req, res as unknown as Parameters<typeof handler>[1]);
-    expect(lastStatus()).toBe(201);
-
-    const putOptions = mockPut.mock.calls[0][2] as { access: string };
-    expect(putOptions.access).toBe('public');
-    delete process.env.BLOB_ACCESS;
-  });
-
-  it('defaults to private access when BLOB_ACCESS is not set', async () => {
-    delete process.env.BLOB_ACCESS;
+  it('uses private access when BLOB_ACCESS is set to private', async () => {
+    process.env.BLOB_ACCESS = 'private';
     const req = makeReq({
       body: validBrewBody,
       headers: { host: 'myapp.vercel.app' },
@@ -246,5 +256,20 @@ describe('POST /api/brews/share', () => {
 
     const putOptions = mockPut.mock.calls[0][2] as { access: string };
     expect(putOptions.access).toBe('private');
+    delete process.env.BLOB_ACCESS;
+  });
+
+  it('defaults to public access when BLOB_ACCESS is not set', async () => {
+    delete process.env.BLOB_ACCESS;
+    const req = makeReq({
+      body: validBrewBody,
+      headers: { host: 'myapp.vercel.app' },
+    });
+    const { res, lastStatus } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(201);
+
+    const putOptions = mockPut.mock.calls[0][2] as { access: string };
+    expect(putOptions.access).toBe('public');
   });
 });
