@@ -1,0 +1,36 @@
+# CODEOWNERS
+# Define code owners for the BrewLog project
+# These users will be automatically requested as reviewers for code changes
+
+# Global fallback for any changes not caught by more specific rules
+* @ken-guru
+
+# Frontend components
+/src/components/ @ken-guru
+/src/pages/ @ken-guru
+/src/hooks/ @ken-guru
+
+# Styling and UI
+/src/index.css @ken-guru
+tailwind.config.js @ken-guru
+
+# API routes and serverless functions
+/api/ @ken-guru
+
+# Testing infrastructure
+/src/test/ @ken-guru
+vitest.config.ts @ken-guru
+
+# Configuration files
+vite.config.ts @ken-guru
+tsconfig*.json @ken-guru
+eslint.config.js @ken-guru
+postcss.config.js @ken-guru
+
+# Documentation
+README.md @ken-guru
+CONTRIBUTING.md @ken-guru
+
+# Deployment configuration
+vercel.json @ken-guru
+.vercelignore @ken-guru
