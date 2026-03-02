@@ -75,7 +75,7 @@ export interface FormSuggestions {
 export interface FormDefaults {
   coffeeProducer: string;
   countryOfOrigin: string;
-  coffeeVariety: string;
+  coffeeVariety: string[];
   grindCoarseness: GrindCoarseness;
   grindEquipment: string;
   brewingMethod: BrewingMethod;
@@ -126,8 +126,14 @@ export function useFormDefaults() {
         ...STATIC_COUNTRIES_OF_ORIGIN,
       ]),
       coffeeVarieties: unique([
-        ...localEntries.map((e) => e.coffeeVariety ?? ''),
-        ...sharedData.map((b) => b.coffeeVariety ?? ''),
+        ...localEntries.flatMap((e) => e.coffeeVariety ?? []),
+        ...sharedData.flatMap((b) => {
+          const v = b.coffeeVariety;
+          if (!v) return [];
+          // Runtime guard: shared blobs stored before the string→string[] migration
+          // may still contain a plain string; handle both shapes gracefully.
+          return Array.isArray(v) ? v : [v as string];
+        }),
         ...STATIC_COFFEE_VARIETIES,
       ]),
       grindEquipments: unique([
@@ -173,8 +179,7 @@ export function useFormDefaults() {
         '',
       coffeeVariety:
         latestLocal?.coffeeVariety ??
-        getMostPopular(sharedData.map((b) => b.coffeeVariety)) ??
-        '',
+        [],
       grindCoarseness:
         latestLocal?.grindCoarseness ??
         getMostPopular(sharedData.map((b) => b.grindCoarseness)) ??

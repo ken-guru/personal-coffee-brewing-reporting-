@@ -3,7 +3,7 @@ import type { BrewingMethod, GrindCoarseness, WaterSource, GuestRating } from '.
 export interface SharedBrewData {
   coffeeProducer: string;
   countryOfOrigin: string;
-  coffeeVariety?: string;
+  coffeeVariety?: string[];
   grindCoarseness: GrindCoarseness;
   grindEquipment: string;
   brewingMethod: BrewingMethod;

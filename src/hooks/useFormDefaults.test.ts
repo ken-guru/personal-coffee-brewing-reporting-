@@ -90,7 +90,7 @@ describe('useFormDefaults', () => {
     const { defaults } = result.current;
     expect(defaults.coffeeProducer).toBe('');
     expect(defaults.countryOfOrigin).toBe('');
-    expect(defaults.coffeeVariety).toBe('');
+    expect(defaults.coffeeVariety).toEqual([]);
     expect(defaults.grindCoarseness).toBe('medium');
     expect(defaults.grindEquipment).toBe('');
     expect(defaults.brewingMethod).toBe('pour-over');
@@ -121,7 +121,7 @@ describe('useFormDefaults', () => {
       createdAt: '2024-06-01T00:00:00.000Z',
       coffeeProducer: 'New Roaster',
       countryOfOrigin: 'Kenya',
-      coffeeVariety: 'SL28',
+      coffeeVariety: ['SL28'],
       grindCoarseness: 'fine',
       grindEquipment: 'Hario',
       brewingMethod: 'aeropress',
@@ -139,7 +139,7 @@ describe('useFormDefaults', () => {
     const { defaults } = result.current;
     expect(defaults.coffeeProducer).toBe('New Roaster');
     expect(defaults.countryOfOrigin).toBe('Kenya');
-    expect(defaults.coffeeVariety).toBe('SL28');
+    expect(defaults.coffeeVariety).toEqual(['SL28']);
     expect(defaults.grindCoarseness).toBe('fine');
     expect(defaults.grindEquipment).toBe('Hario');
     expect(defaults.brewingMethod).toBe('aeropress');
@@ -155,7 +155,7 @@ describe('useFormDefaults', () => {
     const entry = makeEntry({
       coffeeProducer: 'Local Roaster',
       countryOfOrigin: 'Peru',
-      coffeeVariety: 'Bourbon',
+      coffeeVariety: ['Bourbon'],
       grindEquipment: 'MyGrinder',
     });
     localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
@@ -254,7 +254,7 @@ describe('useFormDefaults', () => {
         brew: {
           coffeeProducer: 'Remote Roaster',
           countryOfOrigin: 'Rwanda',
-          coffeeVariety: 'Bourbon',
+          coffeeVariety: ['Bourbon'],
           grindCoarseness: 'medium',
           grindEquipment: 'RemoteGrinder',
           brewingMethod: 'pour-over',

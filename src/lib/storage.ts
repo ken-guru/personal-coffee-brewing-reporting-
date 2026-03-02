@@ -8,11 +8,24 @@ import { BrewingEntry } from '../types/brewing';
 // to include PII, consider encrypting the payload before storing it here.
 const STORAGE_KEY = 'coffee-brewing-entries';
 
+/** Normalizes entries from older formats (e.g. coffeeVariety as a plain string). */
+function normalizeEntry(raw: Record<string, unknown>): BrewingEntry {
+  const entry = raw as unknown as BrewingEntry;
+  if (typeof raw.coffeeVariety === 'string') {
+    return {
+      ...entry,
+      coffeeVariety: raw.coffeeVariety ? [raw.coffeeVariety] : undefined,
+    };
+  }
+  return entry;
+}
+
 export function getEntries(): BrewingEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as BrewingEntry[];
+    const parsed = JSON.parse(raw) as Record<string, unknown>[];
+    return parsed.map(normalizeEntry);
   } catch {
     return [];
   }
