@@ -28,9 +28,9 @@ function fillStep1AndAdvance() {
   fireEvent.click(screen.getByRole('button', { name: /next/i }));
 }
 
-/** On step 2, fill grind equipment and advance to step 3. */
+/** On step 2, select Knock Aergrind and advance to step 3. */
 function fillStep2AndAdvance() {
-  fireEvent.change(screen.getByLabelText(/grind equipment/i), { target: { value: 'Knock Aergrind' } });
+  fireEvent.click(screen.getByRole('button', { name: /knock aergrind/i }));
   fireEvent.click(screen.getByRole('button', { name: /next/i }));
 }
 
@@ -239,5 +239,277 @@ describe('BrewingForm wizard', () => {
     renderForm({ entry, onSubmit: vi.fn() });
     expect(screen.getByDisplayValue('Stumptown')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Colombia')).toBeInTheDocument();
+  });
+
+  // ── Brewing method collapsed picker ──────────────────────────────────────
+
+  it('shows only 3 brewing method buttons by default', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    const group = screen.getByRole('group', { name: /brewing method/i });
+    const buttons = group.querySelectorAll('button');
+    expect(buttons.length).toBe(3);
+  });
+
+  it('reveals all method buttons when "Show more" is clicked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    const group = screen.getByRole('group', { name: /brewing method/i });
+    expect(group.querySelectorAll('button').length).toBe(11);
+  });
+
+  it('shows "Show fewer methods" after expanding, and collapses on click', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    const collapseBtn = screen.getByRole('button', { name: /show fewer methods/i });
+    expect(collapseBtn).toBeInTheDocument();
+    fireEvent.click(collapseBtn);
+    const group = screen.getByRole('group', { name: /brewing method/i });
+    expect(group.querySelectorAll('button').length).toBe(3);
+  });
+
+  it('shows custom method input when "Other" brewing method is selected', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    // Expand to reveal Other, then click it
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^other$/i }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/describe your brewing method/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows validation error if Other is selected without custom method text', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^other$/i }));
+    // Also need to click a known grinder to satisfy grindEquipment validation
+    fireEvent.click(screen.getByRole('button', { name: /knock aergrind/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/please describe your brewing method/i)).toBeInTheDocument();
+    });
+  });
+
+  // ── Water source collapsed picker ─────────────────────────────────────────
+
+  it('shows only 2 water source buttons by default', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /water source/i }));
+    const group = screen.getByRole('group', { name: /water source/i });
+    expect(group.querySelectorAll('button').length).toBe(2);
+  });
+
+  it('reveals all water source buttons when "Show more" is clicked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /water source/i }));
+    fireEvent.click(screen.getByRole('button', { name: /show .* more source/i }));
+    const group = screen.getByRole('group', { name: /water source/i });
+    expect(group.querySelectorAll('button').length).toBe(6);
+  });
+
+  // ── Grind equipment picker ────────────────────────────────────────────────
+
+  it('shows Knock Aergrind and Wilfa Svart as buttons in grind equipment picker', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /grind equipment/i }));
+    expect(screen.getByRole('button', { name: /knock aergrind/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /wilfa svart/i })).toBeInTheDocument();
+  });
+
+  it('shows the Other grinder button in grind equipment picker', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /grind equipment/i }));
+    expect(screen.getByRole('button', { name: /other grinder/i })).toBeInTheDocument();
+  });
+
+  it('reveals custom input when Other grinder button is clicked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /grind equipment/i }));
+    fireEvent.click(screen.getByRole('button', { name: /other grinder/i }));
+    expect(screen.getByLabelText(/custom grind equipment/i)).toBeInTheDocument();
+  });
+
+  // ── Brew time seconds step ────────────────────────────────────────────────
+
+  it('increments seconds by 15 when Increase seconds is clicked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // Default seconds is 0; increment once
+    fireEvent.click(screen.getByRole('button', { name: /increase seconds/i }));
+    expect(screen.getByText('15')).toBeInTheDocument();
+  });
+
+  // ── Brew time N/A toggle ─────────────────────────────────────────────────
+
+  it('shows "Not applicable" checkbox for brew time on step 3', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    expect(screen.getByLabelText(/brew time not applicable/i)).toBeInTheDocument();
+  });
+
+  it('hides the time picker when "Not applicable" is checked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    fireEvent.click(screen.getByLabelText(/brew time not applicable/i));
+    expect(screen.queryByLabelText(/increase minutes/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the time picker when "Not applicable" is unchecked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // Check then uncheck
+    fireEvent.click(screen.getByLabelText(/brew time not applicable/i));
+    fireEvent.click(screen.getByLabelText(/brew time not applicable/i));
+    expect(screen.getByRole('button', { name: /increase minutes/i })).toBeInTheDocument();
+  });
+
+  it('auto-checks "Not applicable" when Siemens Drip method is selected', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    // Expand to find Siemens Drip
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /siemens drip/i }));
+    // Select grind equipment to proceed
+    fireEvent.click(screen.getByRole('button', { name: /knock aergrind/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    expect(screen.getByLabelText(/brew time not applicable/i)).toBeChecked();
+  });
+
+  it('auto-unchecks "Not applicable" when switching away from Siemens Drip', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('group', { name: /brewing method/i }));
+    // Select Siemens Drip
+    fireEvent.click(screen.getByRole('button', { name: /show .* more method/i }));
+    fireEvent.click(screen.getByRole('button', { name: /siemens drip/i }));
+    // Switch to Pour Over (in default top-3)
+    fireEvent.click(screen.getByRole('button', { name: /pour over/i }));
+    // Proceed to brew step
+    fireEvent.click(screen.getByRole('button', { name: /knock aergrind/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    expect(screen.getByLabelText(/brew time not applicable/i)).not.toBeChecked();
+  });
+
+  it('shows N/A in the live recipe summary when brew time is not applicable', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    fireEvent.click(screen.getByLabelText(/brew time not applicable/i));
+    expect(screen.getByText(/N\/A/)).toBeInTheDocument();
+  });
+
+  // ── Maintain ratio checkbox ───────────────────────────────────────────────
+
+  it('shows "Maintain ratio" checkbox on step 3', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    expect(screen.getByLabelText(/maintain ratio/i)).toBeInTheDocument();
+  });
+
+  it('"Maintain ratio" checkbox is checked by default', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    expect(screen.getByLabelText(/maintain ratio/i)).toBeChecked();
+  });
+
+  it('adjusting coffee updates water to maintain ratio', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // Default: 30g coffee, 500ml water → ratio ≈ 16.67
+    // Increase coffee by 1 → 31g; expected water = ceil(31 * (500/30)) = ceil(516.67) = 517
+    fireEvent.click(screen.getByRole('button', { name: /increase coffee amount/i }));
+    // live summary should show updated values
+    expect(screen.getByText(/31g coffee · 517ml water/)).toBeInTheDocument();
+  });
+
+  it('adjusting water updates coffee to maintain ratio', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // Default: 30g coffee, 500ml water → ratio = 16.67
+    // Increase water by 10 → 510ml; expected coffee = ceil(510 / (500/30)) = ceil(510/16.67) = ceil(30.6) = 31
+    fireEvent.click(screen.getByRole('button', { name: /increase water amount/i }));
+    expect(screen.getByText(/31g coffee · 510ml water/)).toBeInTheDocument();
+  });
+
+  it('does not maintain ratio when checkbox is unchecked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // Uncheck maintain ratio
+    fireEvent.click(screen.getByLabelText(/maintain ratio/i));
+    // Increase coffee → water should stay the same
+    fireEvent.click(screen.getByRole('button', { name: /increase coffee amount/i }));
+    expect(screen.getByText(/31g coffee · 500ml water/)).toBeInTheDocument();
+  });
+
+  // ── Click-to-edit stepper inputs ──────────────────────────────────────────
+
+  it('renders the coffee amount as a clickable button', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    // The coffee amount should be a button with "click to edit" affordance
+    expect(screen.getByRole('button', { name: /30 g, click to edit/i })).toBeInTheDocument();
+  });
+
+  it('shows an editable input when coffee amount button is clicked', async () => {
+    renderForm();
+    fillStep1AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
+    fillStep2AndAdvance();
+    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
+    fireEvent.click(screen.getByRole('button', { name: /30 g, click to edit/i }));
+    expect(screen.getByLabelText(/edit coffee amount/i)).toBeInTheDocument();
   });
 });

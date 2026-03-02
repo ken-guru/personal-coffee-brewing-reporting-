@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, Fragment } from 'react';
+import { useFormDefaults } from '../../hooks/useFormDefaults';
 import { BrewingEntry, GrindCoarseness, BrewingMethod, WaterSource } from '../../types/brewing';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -39,12 +40,14 @@ const brewSchema = z.object({
   grindCoarseness: z.enum(['extra-fine', 'fine', 'medium-fine', 'medium', 'medium-coarse', 'coarse', 'extra-coarse'] as const),
   grindEquipment: z.string().min(1, 'Grind equipment is required'),
   brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'aeropress-go', 'kalita', 'siemens-drip', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
+  brewingMethodCustom: z.string().optional(),
   gramsOfCoffee: z.coerce.number().min(1, 'Must be at least 1g').max(1000, 'Max 1000g'),
   millilitersOfWater: z.coerce.number().min(1, 'Must be at least 1ml').max(10000, 'Max 10000ml'),
   waterSource: z.enum(['tap', 'filtered-tap', 'bottled-still', 'bottled-sparkling', 'spring', 'other'] as const),
   numberOfPeople: z.coerce.number().min(1, 'At least 1 person').max(100, 'Max 100 people'),
   brewMinutes: z.coerce.number().min(0).max(60),
   brewSeconds: z.coerce.number().min(0).max(59),
+  brewTimeNotApplicable: z.boolean(),
   rating: z.number().min(1, 'Please select a rating').max(5),
   comment: z.string().optional(),
   guestRatings: z.array(
@@ -98,31 +101,18 @@ const waterOptions: { value: WaterSource; label: string; Icon: React.FC<{ classN
   { value: 'other',             label: 'Other',        Icon: OtherWaterIcon       },
 ];
 
-const grindEquipmentSuggestions = ['Knock Aergrind', 'Wilfa Svart'];
-
-const coffeeVarietySuggestions = [
-  'Geisha',
-  'Catuaí',
-  'Red Catuaí',
-  'Yellow Catuaí',
-  'Bourbon',
-  'Typica',
-  'Caturra',
-  'SL28',
-  'SL34',
-  'Ethiopian Heirloom',
-  'Wush Wush',
-  'Pacamara',
-  'Maragogipe',
-  'Mundo Novo',
-];
-
 const coffeeWaterDefaults: Partial<Record<BrewingMethod, { gramsOfCoffee: number; millilitersOfWater: number }>> = {
   'pour-over':    { gramsOfCoffee: 30, millilitersOfWater: 500 },
   kalita:         { gramsOfCoffee: 30, millilitersOfWater: 500 },
   aeropress:      { gramsOfCoffee: 14, millilitersOfWater: 200 },
   'aeropress-go': { gramsOfCoffee: 14, millilitersOfWater: 200 },
 };
+
+/**
+ * Methods where brew time is fixed by the equipment and cannot be controlled by the user.
+ * Selecting one of these methods auto-checks the "Not applicable" brew time toggle.
+ */
+const BREW_TIME_NOT_APPLICABLE_METHODS = new Set<BrewingMethod>(['siemens-drip']);
 
 /**
  * Per-step sub-schemas used to validate only the current step's fields before
@@ -135,9 +125,19 @@ const stepSchemas = [
     coffeeProducer: z.string().min(1, 'Coffee producer is required'),
     countryOfOrigin: z.string().min(1, 'Country of origin is required'),
   }),
-  // Step 1 – Method & Grind (enum fields always have a valid default; only equipment can be empty)
+  // Step 1 – Method & Grind (enum fields always have a valid default; only equipment and custom method can be empty)
   z.object({
+    brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'aeropress-go', 'kalita', 'siemens-drip', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
     grindEquipment: z.string().min(1, 'Grind equipment is required'),
+    brewingMethodCustom: z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.brewingMethod === 'other' && !data.brewingMethodCustom?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please describe your brewing method',
+        path: ['brewingMethodCustom'],
+      });
+    }
   }),
   // Step 2 – Brew parameters (enum + numeric fields with valid defaults; verify numbers)
   z.object({
@@ -208,27 +208,60 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive mt-1" role="alert">{message}</p>;
 }
 
-function MethodPicker({ value, onChange }: { value: BrewingMethod; onChange: (v: BrewingMethod) => void }) {
+function MethodPicker({
+  value,
+  onChange,
+  popularMethods,
+}: {
+  value: BrewingMethod;
+  onChange: (v: BrewingMethod) => void;
+  popularMethods: BrewingMethod[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleOptions = expanded
+    ? methodOptions
+    : methodOptions.filter(({ value: m }) => popularMethods.includes(m) || m === value);
+  const hiddenCount = methodOptions.length - visibleOptions.length;
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" role="group" aria-label="Brewing method">
-      {methodOptions.map(({ value: method, label, Icon }) => (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" role="group" aria-label="Brewing method">
+        {visibleOptions.map(({ value: method, label, Icon }) => (
+          <button
+            key={method}
+            type="button"
+            onClick={() => onChange(method)}
+            aria-pressed={value === method}
+            aria-label={label}
+            className={cn(
+              'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              value === method
+                ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent',
+            )}
+          >
+            <Icon className="h-10 w-10" />
+            <span className="text-[11px] font-medium leading-tight text-center">{label}</span>
+          </button>
+        ))}
+      </div>
+      {!expanded && hiddenCount > 0 && (
         <button
-          key={method}
           type="button"
-          onClick={() => onChange(method)}
-          aria-pressed={value === method}
-          aria-label={label}
-          className={cn(
-            'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            value === method
-              ? 'border-primary bg-primary/10 text-primary shadow-sm'
-              : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent',
-          )}
+          onClick={() => setExpanded(true)}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
         >
-          <Icon className="h-10 w-10" />
-          <span className="text-[11px] font-medium leading-tight text-center">{label}</span>
+          Show {hiddenCount} more method{hiddenCount !== 1 ? 's' : ''}
         </button>
-      ))}
+      )}
+      {expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+        >
+          Show fewer methods
+        </button>
+      )}
     </div>
   );
 }
@@ -267,27 +300,147 @@ function GrindPicker({ value, onChange }: { value: GrindCoarseness; onChange: (v
   );
 }
 
-function WaterPicker({ value, onChange }: { value: WaterSource; onChange: (v: WaterSource) => void }) {
+function WaterPicker({
+  value,
+  onChange,
+  popularSources,
+}: {
+  value: WaterSource;
+  onChange: (v: WaterSource) => void;
+  popularSources: WaterSource[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleOptions = expanded
+    ? waterOptions
+    : waterOptions.filter(({ value: s }) => popularSources.includes(s) || s === value);
+  const hiddenCount = waterOptions.length - visibleOptions.length;
   return (
-    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Water source">
-      {waterOptions.map(({ value: source, label, Icon }) => (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Water source">
+        {visibleOptions.map(({ value: source, label, Icon }) => (
+          <button
+            key={source}
+            type="button"
+            onClick={() => onChange(source)}
+            aria-pressed={value === source}
+            aria-label={label}
+            className={cn(
+              'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              value === source
+                ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent',
+            )}
+          >
+            <Icon className="h-9 w-9" />
+            <span className="text-[11px] font-medium leading-tight text-center">{label}</span>
+          </button>
+        ))}
+      </div>
+      {!expanded && hiddenCount > 0 && (
         <button
-          key={source}
           type="button"
-          onClick={() => onChange(source)}
-          aria-pressed={value === source}
-          aria-label={label}
+          onClick={() => setExpanded(true)}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+        >
+          Show {hiddenCount} more source{hiddenCount !== 1 ? 's' : ''}
+        </button>
+      )}
+      {expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+        >
+          Show fewer sources
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The two pre-defined grinders shown as quick-select buttons
+const KNOWN_GRIND_EQUIPMENTS = ['Knock Aergrind', 'Wilfa Svart'];
+
+function GrindEquipmentPicker({
+  value,
+  onChange,
+  customSuggestions,
+  error,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  customSuggestions: string[];
+  error?: string;
+}) {
+  const isKnown = KNOWN_GRIND_EQUIPMENTS.includes(value);
+  // Show custom input only when the value is a non-empty string not in the known list
+  const [showCustom, setShowCustom] = useState(!isKnown && value !== '');
+
+  const handleKnownClick = (opt: string) => {
+    onChange(opt);
+    setShowCustom(false);
+  };
+
+  const handleOtherClick = () => {
+    if (isKnown) onChange('');
+    setShowCustom(true);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Grind equipment">
+        {KNOWN_GRIND_EQUIPMENTS.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => handleKnownClick(opt)}
+            aria-pressed={value === opt}
+            aria-label={opt}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 text-[11px] font-medium leading-tight text-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              value === opt
+                ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent',
+            )}
+          >
+            {opt}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={handleOtherClick}
+          aria-pressed={showCustom}
+          aria-label="Other grinder"
           className={cn(
-            'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            value === source
+            'flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 text-[11px] font-medium leading-tight text-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            showCustom
               ? 'border-primary bg-primary/10 text-primary shadow-sm'
               : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent',
           )}
         >
-          <Icon className="h-9 w-9" />
-          <span className="text-[11px] font-medium leading-tight text-center">{label}</span>
+          Other
         </button>
-      ))}
+      </div>
+      {showCustom && (
+        <div>
+          <Input
+            id="grindEquipment"
+            placeholder="e.g. Baratza Encore, Comandante"
+            list="grind-equipment-suggestions"
+            value={isKnown ? '' : value}
+            onChange={(e) => onChange(e.target.value)}
+            aria-invalid={!!error}
+            aria-label="Custom grind equipment"
+            className="text-base"
+          />
+          <datalist id="grind-equipment-suggestions">
+            {customSuggestions.filter((s) => !KNOWN_GRIND_EQUIPMENTS.includes(s)).map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+      )}
+      {!!error && <p className="text-xs text-destructive mt-1" role="alert">{error}</p>}
     </div>
   );
 }
@@ -309,6 +462,25 @@ function Stepper({
   step?: number;
   label: string;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  // Set to true before any explicit commit or cancel so the subsequent onBlur
+  // (fired when the input unmounts) does not double-commit or override the cancel.
+  const skipNextBlurRef = useRef(false);
+
+  const startEdit = () => {
+    setInputValue(String(value));
+    setEditing(true);
+  };
+
+  const commitEdit = () => {
+    const parsed = parseInt(inputValue, 10);
+    if (!isNaN(parsed)) {
+      onChange(Math.min(max, Math.max(min, parsed)));
+    }
+    setEditing(false);
+  };
+
   return (
     <div className="flex items-center justify-center gap-4">
       <button
@@ -321,7 +493,47 @@ function Stepper({
         <Minus className="h-4 w-4" />
       </button>
       <div className="text-center min-w-[5rem]">
-        <span className="text-3xl font-bold text-foreground tabular-nums">{value}</span>
+        {editing ? (
+          <input
+            type="number"
+            value={inputValue}
+            min={min}
+            max={max}
+            onChange={(e) => setInputValue(e.target.value)}
+            onBlur={() => {
+              if (skipNextBlurRef.current) {
+                skipNextBlurRef.current = false;
+              } else {
+                commitEdit();
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                skipNextBlurRef.current = true;
+                commitEdit();
+              }
+              if (e.key === 'Escape') {
+                skipNextBlurRef.current = true;
+                setEditing(false);
+              }
+            }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            aria-label={`Edit ${label}`}
+            className="text-3xl font-bold text-foreground tabular-nums w-20 text-center bg-transparent border-0 border-b-2 border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startEdit}
+            title="Click to type a value"
+            aria-label={`${value}${unit ? ' ' + unit : ''}, click to edit`}
+            className="text-3xl font-bold text-foreground tabular-nums cursor-text bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded hover:text-primary transition-colors"
+          >
+            {value}
+          </button>
+        )}
         {unit && <span className="text-sm text-muted-foreground ml-1">{unit}</span>}
       </div>
       <button
@@ -342,29 +554,52 @@ function BrewTimePicker({
   seconds,
   onMinutesChange,
   onSecondsChange,
+  notApplicable,
+  onNotApplicableChange,
 }: {
   minutes: number;
   seconds: number;
   onMinutesChange: (v: number) => void;
   onSecondsChange: (v: number) => void;
+  notApplicable: boolean;
+  onNotApplicableChange: (v: boolean) => void;
 }) {
   const spinBtn =
     'w-8 h-8 rounded-full border-2 border-border flex items-center justify-center hover:bg-accent transition-colors text-base font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
   return (
-    <div className="flex items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-2">
-        <button type="button" className={spinBtn} onClick={() => onMinutesChange(Math.min(60, minutes + 1))} aria-label="Increase minutes">+</button>
-        <span className="text-4xl font-bold w-14 text-center tabular-nums text-foreground">{String(minutes).padStart(2, '0')}</span>
-        <button type="button" className={spinBtn} onClick={() => onMinutesChange(Math.max(0, minutes - 1))} aria-label="Decrease minutes">−</button>
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">min</span>
+    <div className="space-y-3">
+      <div className="flex items-center justify-center">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={notApplicable}
+            onChange={(e) => onNotApplicableChange(e.target.checked)}
+            aria-label="Brew time not applicable"
+            className="accent-primary"
+          />
+          Not applicable
+        </label>
       </div>
-      <span className="text-4xl font-bold text-muted-foreground pb-6">:</span>
-      <div className="flex flex-col items-center gap-2">
-        <button type="button" className={spinBtn} onClick={() => onSecondsChange(Math.min(59, seconds + 1))} aria-label="Increase seconds">+</button>
-        <span className="text-4xl font-bold w-14 text-center tabular-nums text-foreground">{String(seconds).padStart(2, '0')}</span>
-        <button type="button" className={spinBtn} onClick={() => onSecondsChange(Math.max(0, seconds - 1))} aria-label="Decrease seconds">−</button>
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">sec</span>
-      </div>
+      {!notApplicable && (
+        <div className="flex items-center justify-center gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <button type="button" className={spinBtn} onClick={() => onMinutesChange(Math.min(60, minutes + 1))} aria-label="Increase minutes">+</button>
+            <span className="text-4xl font-bold w-14 text-center tabular-nums text-foreground">{String(minutes).padStart(2, '0')}</span>
+            <button type="button" className={spinBtn} onClick={() => onMinutesChange(Math.max(0, minutes - 1))} aria-label="Decrease minutes">−</button>
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">min</span>
+          </div>
+          <span className="text-4xl font-bold text-muted-foreground pb-6">:</span>
+          <div className="flex flex-col items-center gap-2">
+            <button type="button" className={spinBtn} onClick={() => onSecondsChange(Math.min(45, seconds + 15))} aria-label="Increase seconds">+</button>
+            <span className="text-4xl font-bold w-14 text-center tabular-nums text-foreground">{String(seconds).padStart(2, '0')}</span>
+            <button type="button" className={spinBtn} onClick={() => onSecondsChange(Math.max(0, seconds - 15))} aria-label="Decrease seconds">−</button>
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">sec</span>
+          </div>
+        </div>
+      )}
+      {notApplicable && (
+        <p className="text-center text-sm text-muted-foreground italic">Time is fixed by the equipment</p>
+      )}
     </div>
   );
 }
@@ -375,42 +610,50 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [maintainRatio, setMaintainRatio] = useState(true);
   const isFirstRender = useRef(true);
+  const sharedDefaultsApplied = useRef(false);
+
+  const { suggestions, defaults: formDefaults, popularBrewingMethods, popularWaterSources, loading: defaultsLoading, hasLocalData } = useFormDefaults();
 
   const defaultValues: BrewFormValues = entry
     ? {
-        coffeeProducer:     entry.coffeeProducer,
-        countryOfOrigin:    entry.countryOfOrigin,
-        coffeeVariety:      entry.coffeeVariety ?? '',
-        grindCoarseness:    entry.grindCoarseness,
-        grindEquipment:     entry.grindEquipment,
-        brewingMethod:      entry.brewingMethod,
-        gramsOfCoffee:      entry.gramsOfCoffee,
-        millilitersOfWater: entry.millilitersOfWater,
-        waterSource:        entry.waterSource,
-        numberOfPeople:     entry.numberOfPeople,
-        brewMinutes:        Math.floor(entry.brewTimeSeconds / 60),
-        brewSeconds:        entry.brewTimeSeconds % 60,
-        rating:             entry.rating,
-        comment:            entry.comment ?? '',
-        guestRatings:       entry.guestRatings,
+        coffeeProducer:         entry.coffeeProducer,
+        countryOfOrigin:        entry.countryOfOrigin,
+        coffeeVariety:          entry.coffeeVariety ?? '',
+        grindCoarseness:        entry.grindCoarseness,
+        grindEquipment:         entry.grindEquipment,
+        brewingMethod:          entry.brewingMethod,
+        brewingMethodCustom:    entry.brewingMethodCustom ?? '',
+        gramsOfCoffee:          entry.gramsOfCoffee,
+        millilitersOfWater:     entry.millilitersOfWater,
+        waterSource:            entry.waterSource,
+        numberOfPeople:         entry.numberOfPeople,
+        brewMinutes:            entry.brewTimeSeconds !== null ? Math.floor(entry.brewTimeSeconds / 60) : 0,
+        brewSeconds:            entry.brewTimeSeconds !== null ? entry.brewTimeSeconds % 60 : 0,
+        brewTimeNotApplicable:  entry.brewTimeSeconds === null,
+        rating:                 entry.rating,
+        comment:                entry.comment ?? '',
+        guestRatings:           entry.guestRatings,
       }
     : {
-        coffeeProducer:     '',
-        countryOfOrigin:    '',
-        coffeeVariety:      '',
-        grindCoarseness:    'medium',
-        grindEquipment:     '',
-        brewingMethod:      'pour-over',
-        gramsOfCoffee:      30,
-        millilitersOfWater: 500,
-        waterSource:        'filtered-tap',
-        numberOfPeople:     1,
-        brewMinutes:        3,
-        brewSeconds:        0,
-        rating:             0,
-        comment:            '',
-        guestRatings:       [],
+        coffeeProducer:         formDefaults.coffeeProducer,
+        countryOfOrigin:        formDefaults.countryOfOrigin,
+        coffeeVariety:          formDefaults.coffeeVariety,
+        grindCoarseness:        formDefaults.grindCoarseness,
+        grindEquipment:         formDefaults.grindEquipment,
+        brewingMethod:          formDefaults.brewingMethod,
+        brewingMethodCustom:    '',
+        gramsOfCoffee:          formDefaults.gramsOfCoffee,
+        millilitersOfWater:     formDefaults.millilitersOfWater,
+        waterSource:            formDefaults.waterSource,
+        numberOfPeople:         formDefaults.numberOfPeople,
+        brewMinutes:            formDefaults.brewMinutes,
+        brewSeconds:            formDefaults.brewSeconds,
+        brewTimeNotApplicable:  formDefaults.brewTimeNotApplicable,
+        rating:                 0,
+        comment:                '',
+        guestRatings:           [],
       };
 
   const {
@@ -421,15 +664,46 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     setValue,
     setError,
     getValues,
-    formState: { errors },
+    reset,
+    formState: { errors, isDirty },
   } = useForm<BrewFormValues>({ resolver: zodResolver(brewSchema), defaultValues });
 
-  const brewingMethod  = watch('brewingMethod');
-  const numberOfPeople = watch('numberOfPeople');
-  const gramsOfCoffee  = watch('gramsOfCoffee');
-  const milliliters    = watch('millilitersOfWater');
-  const brewMinutes    = watch('brewMinutes');
-  const brewSeconds    = watch('brewSeconds');
+  const brewingMethod      = watch('brewingMethod');
+  const numberOfPeople     = watch('numberOfPeople');
+  const gramsOfCoffee      = watch('gramsOfCoffee');
+  const milliliters        = watch('millilitersOfWater');
+  const brewMinutes        = watch('brewMinutes');
+  const brewSeconds        = watch('brewSeconds');
+  const brewTimeNotApplicable = watch('brewTimeNotApplicable');
+
+  // When shared brews finish loading and there is no local data, apply the
+  // most-popular shared-brew values as defaults (only once, and only if the
+  // user has not yet modified the form).
+  useEffect(() => {
+    const alreadyHasData = entry || hasLocalData;
+    const notReadyOrUsed = defaultsLoading || isDirty || sharedDefaultsApplied.current;
+    if (alreadyHasData || notReadyOrUsed) return;
+    sharedDefaultsApplied.current = true;
+    reset({
+      coffeeProducer:         formDefaults.coffeeProducer,
+      countryOfOrigin:        formDefaults.countryOfOrigin,
+      coffeeVariety:          formDefaults.coffeeVariety,
+      grindCoarseness:        formDefaults.grindCoarseness,
+      grindEquipment:         formDefaults.grindEquipment,
+      brewingMethod:          formDefaults.brewingMethod,
+      brewingMethodCustom:    '',
+      gramsOfCoffee:          formDefaults.gramsOfCoffee,
+      millilitersOfWater:     formDefaults.millilitersOfWater,
+      waterSource:            formDefaults.waterSource,
+      numberOfPeople:         formDefaults.numberOfPeople,
+      brewMinutes:            formDefaults.brewMinutes,
+      brewSeconds:            formDefaults.brewSeconds,
+      brewTimeNotApplicable:  formDefaults.brewTimeNotApplicable,
+      rating:                 0,
+      comment:                '',
+      guestRatings:           [],
+    });
+  }, [entry, hasLocalData, defaultsLoading, isDirty, formDefaults, reset]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -438,6 +712,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
       setValue('gramsOfCoffee', defaults.gramsOfCoffee);
       setValue('millilitersOfWater', defaults.millilitersOfWater);
     }
+    setValue('brewTimeNotApplicable', BREW_TIME_NOT_APPLICABLE_METHODS.has(brewingMethod));
   }, [brewingMethod, setValue]);
 
   const handleNext = () => {
@@ -480,10 +755,14 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <Input
                 id="coffeeProducer"
                 placeholder="e.g. Stumptown, Blue Bottle"
+                list="coffee-producer-suggestions"
                 {...register('coffeeProducer')}
                 aria-invalid={!!errors.coffeeProducer}
                 className="text-base"
               />
+              <datalist id="coffee-producer-suggestions">
+                {suggestions.coffeeProducers.map((s) => <option key={s} value={s} />)}
+              </datalist>
               <FieldError message={errors.coffeeProducer?.message} />
             </div>
             <div className="space-y-2">
@@ -493,10 +772,14 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <Input
                 id="countryOfOrigin"
                 placeholder="e.g. Ethiopia, Colombia"
+                list="country-of-origin-suggestions"
                 {...register('countryOfOrigin')}
                 aria-invalid={!!errors.countryOfOrigin}
                 className="text-base"
               />
+              <datalist id="country-of-origin-suggestions">
+                {suggestions.countriesOfOrigin.map((s) => <option key={s} value={s} />)}
+              </datalist>
               <FieldError message={errors.countryOfOrigin?.message} />
             </div>
             <div className="space-y-2">
@@ -511,7 +794,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                 className="text-base"
               />
               <datalist id="coffee-variety-suggestions">
-                {coffeeVarietySuggestions.map((s) => <option key={s} value={s} />)}
+                {suggestions.coffeeVarieties.map((s) => <option key={s} value={s} />)}
               </datalist>
             </div>
           </div>
@@ -529,9 +812,25 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               control={control}
               name="brewingMethod"
               render={({ field }) => (
-                <MethodPicker value={field.value} onChange={field.onChange} />
+                <MethodPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  popularMethods={popularBrewingMethods}
+                />
               )}
             />
+            {brewingMethod === 'other' && (
+              <div className="mt-2">
+                <Input
+                  id="brewingMethodCustom"
+                  placeholder="Describe your brewing method…"
+                  {...register('brewingMethodCustom')}
+                  aria-invalid={!!errors.brewingMethodCustom}
+                  className="text-base"
+                />
+                <FieldError message={errors.brewingMethodCustom?.message} />
+              </div>
+            )}
             <FieldError message={errors.brewingMethod?.message} />
           </div>
 
@@ -548,21 +847,21 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="grindEquipment">
+            <Label>
               Grind Equipment <span className="text-destructive" aria-hidden="true">*</span>
             </Label>
-            <Input
-              id="grindEquipment"
-              placeholder="e.g. Baratza Encore, Hario"
-              list="grind-equipment-suggestions"
-              {...register('grindEquipment')}
-              aria-invalid={!!errors.grindEquipment}
-              className="text-base"
+            <Controller
+              control={control}
+              name="grindEquipment"
+              render={({ field }) => (
+                <GrindEquipmentPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  customSuggestions={suggestions.grindEquipments}
+                  error={errors.grindEquipment?.message}
+                />
+              )}
             />
-            <datalist id="grind-equipment-suggestions">
-              {grindEquipmentSuggestions.map((s) => <option key={s} value={s} />)}
-            </datalist>
-            <FieldError message={errors.grindEquipment?.message} />
           </div>
         </div>
       )}
@@ -578,7 +877,11 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               control={control}
               name="waterSource"
               render={({ field }) => (
-                <WaterPicker value={field.value} onChange={field.onChange} />
+                <WaterPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  popularSources={popularWaterSources}
+                />
               )}
             />
             <FieldError message={errors.waterSource?.message} />
@@ -589,20 +892,20 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <p className="text-sm font-medium text-center text-foreground">
                 Coffee <span className="text-destructive" aria-hidden="true">*</span>
               </p>
-              <Controller
-                control={control}
-                name="gramsOfCoffee"
-                render={({ field }) => (
-                  <Stepper
-                    value={field.value}
-                    onChange={field.onChange}
-                    min={1}
-                    max={1000}
-                    unit="g"
-                    step={1}
-                    label="coffee amount"
-                  />
-                )}
+              <Stepper
+                value={gramsOfCoffee}
+                onChange={(newCoffee) => {
+                  setValue('gramsOfCoffee', newCoffee);
+                  if (maintainRatio && gramsOfCoffee > 0 && milliliters > 0) {
+                    const ratio = milliliters / gramsOfCoffee;
+                    setValue('millilitersOfWater', Math.min(10000, Math.max(1, Math.ceil(newCoffee * ratio))));
+                  }
+                }}
+                min={1}
+                max={1000}
+                unit="g"
+                step={1}
+                label="coffee amount"
               />
               <FieldError message={errors.gramsOfCoffee?.message} />
             </div>
@@ -610,34 +913,46 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <p className="text-sm font-medium text-center text-foreground">
                 Water <span className="text-destructive" aria-hidden="true">*</span>
               </p>
-              <Controller
-                control={control}
-                name="millilitersOfWater"
-                render={({ field }) => (
-                  <Stepper
-                    value={field.value}
-                    onChange={field.onChange}
-                    min={1}
-                    max={10000}
-                    unit="ml"
-                    step={10}
-                    label="water amount"
-                  />
-                )}
+              <Stepper
+                value={milliliters}
+                onChange={(newWater) => {
+                  setValue('millilitersOfWater', newWater);
+                  if (maintainRatio && gramsOfCoffee > 0 && milliliters > 0) {
+                    const ratio = milliliters / gramsOfCoffee;
+                    setValue('gramsOfCoffee', Math.min(1000, Math.max(1, Math.ceil(newWater / ratio))));
+                  }
+                }}
+                min={1}
+                max={10000}
+                unit="ml"
+                step={10}
+                label="water amount"
               />
               <FieldError message={errors.millilitersOfWater?.message} />
             </div>
           </div>
 
-          {/* Live ratio badge */}
-          {gramsOfCoffee > 0 && milliliters > 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              Ratio{' '}
-              <span className="font-semibold text-foreground">
-                1:{(milliliters / gramsOfCoffee).toFixed(1)}
-              </span>
-            </p>
-          )}
+          {/* Maintain ratio toggle + live ratio badge */}
+          <div className="flex items-center justify-between gap-4">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={maintainRatio}
+                onChange={(e) => setMaintainRatio(e.target.checked)}
+                aria-label="Maintain ratio when adjusting coffee or water"
+                className="accent-primary"
+              />
+              Maintain ratio
+            </label>
+            {gramsOfCoffee > 0 && milliliters > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Ratio{' '}
+                <span className="font-semibold text-foreground">
+                  1:{(milliliters / gramsOfCoffee).toFixed(1)}
+                </span>
+              </p>
+            )}
+          </div>
 
           <div className="space-y-3">
             <p className="text-sm font-medium text-center text-foreground">
@@ -656,6 +971,8 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
                       seconds={secField.value}
                       onMinutesChange={minField.onChange}
                       onSecondsChange={secField.onChange}
+                      notApplicable={brewTimeNotApplicable}
+                      onNotApplicableChange={(v) => setValue('brewTimeNotApplicable', v)}
                     />
                   )}
                 />
@@ -762,7 +1079,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
           {' · '}
           {gramsOfCoffee}g coffee · {milliliters}ml water
           {' · '}
-          {String(brewMinutes).padStart(2, '0')}:{String(brewSeconds).padStart(2, '0')}
+          {brewTimeNotApplicable ? 'N/A' : `${String(brewMinutes).padStart(2, '0')}:${String(brewSeconds).padStart(2, '0')}`}
         </p>
       )}
     </form>

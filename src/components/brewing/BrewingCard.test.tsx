@@ -39,6 +39,11 @@ describe('BrewingCard', () => {
     expect(screen.getByText('3:05')).toBeInTheDocument();
   });
 
+  it('displays N/A when brew time is null', () => {
+    renderCard({ brewTimeSeconds: null });
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+  });
+
   it('displays coffee and water amounts with ratio', () => {
     renderCard({ gramsOfCoffee: 15, millilitersOfWater: 250 });
     // ratio = 250/15 = 16.7

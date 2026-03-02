@@ -44,11 +44,12 @@ export interface BrewingEntry {
   grindCoarseness: GrindCoarseness;
   grindEquipment: string;
   brewingMethod: BrewingMethod;
+  brewingMethodCustom?: string;
   gramsOfCoffee: number;
   millilitersOfWater: number;
   waterSource: WaterSource;
   numberOfPeople: number;
-  brewTimeSeconds: number;
+  brewTimeSeconds: number | null; // null means "not applicable" (time is fixed by equipment)
   rating: number; // 1-5
   comment?: string;
   guestRatings: GuestRating[];

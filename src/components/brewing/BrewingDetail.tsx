@@ -69,7 +69,9 @@ export function BrewingDetail({ entry }: BrewingDetailProps) {
 
       {/* Method badge */}
       <Badge className="text-sm py-1 px-3">
-        {formatBrewingMethod(entry.brewingMethod)}
+        {entry.brewingMethod === 'other' && entry.brewingMethodCustom
+          ? entry.brewingMethodCustom
+          : formatBrewingMethod(entry.brewingMethod)}
       </Badge>
 
       {/* Core details */}

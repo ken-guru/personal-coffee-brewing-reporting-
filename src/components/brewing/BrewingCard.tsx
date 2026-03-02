@@ -45,7 +45,9 @@ export function BrewingCard({ entry }: BrewingCardProps) {
               <div className="flex items-center gap-1 mt-1">
                 <Coffee className="h-3 w-3 text-primary shrink-0" aria-hidden="true" />
                 <span className="text-sm text-muted-foreground">
-                  {formatBrewingMethod(entry.brewingMethod)}
+                  {entry.brewingMethod === 'other' && entry.brewingMethodCustom
+                    ? entry.brewingMethodCustom
+                    : formatBrewingMethod(entry.brewingMethod)}
                 </span>
               </div>
             </div>
