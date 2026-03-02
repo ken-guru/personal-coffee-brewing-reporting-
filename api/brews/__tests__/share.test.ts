@@ -30,7 +30,7 @@ function makeReq(overrides: {
   return {
     method: overrides.method ?? 'POST',
     body: overrides.body,
-    headers: overrides.headers ?? { host: 'example.com' },
+    headers: overrides.headers ?? { host: 'example.com', 'content-type': 'application/json' },
   } as unknown as IncomingMessage & { body?: unknown; query?: Record<string, string> };
 }
 
@@ -110,6 +110,30 @@ describe('POST /api/brews/share', () => {
     expect(lastBody()).toMatchObject({ error: 'Method not allowed' });
   });
 
+  it('returns 415 when Content-Type is not application/json', async () => {
+    const req = makeReq({
+      body: validBrewBody,
+      headers: { 'content-type': 'text/plain' },
+    });
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(415);
+    expect((lastBody() as { error: string }).error).toMatch(/application\/json/);
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
+  it('returns 415 when Content-Type header is absent', async () => {
+    const req = makeReq({
+      body: validBrewBody,
+      headers: {},
+    });
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(415);
+    expect((lastBody() as { error: string }).error).toMatch(/application\/json/);
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for missing body', async () => {
     const req = makeReq({ body: null });
     const { res, lastStatus, lastBody } = makeRes();
@@ -157,7 +181,7 @@ describe('POST /api/brews/share', () => {
   it('stores brew in blob and returns 201 with shareUrl on success', async () => {
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app', 'x-forwarded-proto': 'https' },
+      headers: { host: 'myapp.vercel.app', 'x-forwarded-proto': 'https', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -181,7 +205,7 @@ describe('POST /api/brews/share', () => {
     delete (bodyWithoutId as Partial<typeof validBrewBody>).id;
     const req = makeReq({
       body: bodyWithoutId,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -209,7 +233,7 @@ describe('POST /api/brews/share', () => {
   it('does not include local id or timestamps in the stored brew payload', async () => {
     const req = makeReq({
       body: { ...validBrewBody, id: 'local-id-123', createdAt: '2024-01-01', updatedAt: '2024-01-02' },
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -235,7 +259,7 @@ describe('POST /api/brews/share', () => {
           { id: 'local-guest-2', rating: 5 },
         ],
       },
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -255,7 +279,7 @@ describe('POST /api/brews/share', () => {
     mockPut.mockRejectedValueOnce(new Error('Blob store error'));
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -267,7 +291,7 @@ describe('POST /api/brews/share', () => {
     mockPut.mockRejectedValueOnce(new blobModule.BlobAccessError());
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -279,7 +303,7 @@ describe('POST /api/brews/share', () => {
     mockPut.mockRejectedValueOnce(new blobModule.BlobStoreNotFoundError());
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -291,7 +315,7 @@ describe('POST /api/brews/share', () => {
     process.env.BLOB_ACCESS = 'private';
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -306,7 +330,7 @@ describe('POST /api/brews/share', () => {
     delete process.env.BLOB_ACCESS;
     const req = makeReq({
       body: validBrewBody,
-      headers: { host: 'myapp.vercel.app' },
+      headers: { host: 'myapp.vercel.app', 'content-type': 'application/json' },
     });
     const { res, lastStatus } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);

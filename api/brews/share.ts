@@ -25,6 +25,12 @@ export default async function handler(req: VReq, res: VRes) {
     return;
   }
 
+  const contentType = (req.headers['content-type'] as string | undefined) ?? '';
+  if (!contentType.includes('application/json')) {
+    res.status(415).json({ error: 'Content-Type must be application/json' });
+    return;
+  }
+
   try {
     const body = req.body as Record<string, unknown> | null;
 
