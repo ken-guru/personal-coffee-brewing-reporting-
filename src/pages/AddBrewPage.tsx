@@ -18,7 +18,7 @@ export function AddBrewPage() {
       updatedAt: now,
       coffeeProducer: data.coffeeProducer,
       countryOfOrigin: data.countryOfOrigin,
-      coffeeVariety: data.coffeeVariety || undefined,
+      coffeeVariety: data.coffeeVariety?.length ? data.coffeeVariety : undefined,
       grindCoarseness: data.grindCoarseness,
       grindEquipment: data.grindEquipment,
       brewingMethod: data.brewingMethod,

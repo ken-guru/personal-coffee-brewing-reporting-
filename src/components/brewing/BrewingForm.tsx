@@ -36,7 +36,7 @@ import {
 const brewSchema = z.object({
   coffeeProducer: z.string().min(1, 'Coffee producer is required'),
   countryOfOrigin: z.string().min(1, 'Country of origin is required'),
-  coffeeVariety: z.string().optional(),
+  coffeeVariety: z.array(z.string()).optional(),
   grindCoarseness: z.enum(['extra-fine', 'fine', 'medium-fine', 'medium', 'medium-coarse', 'coarse', 'extra-coarse'] as const),
   grindEquipment: z.string().min(1, 'Grind equipment is required'),
   brewingMethod: z.enum(['pour-over', 'french-press', 'aeropress', 'aeropress-go', 'kalita', 'siemens-drip', 'espresso', 'moka-pot', 'cold-brew', 'drip', 'other'] as const),
@@ -445,6 +445,95 @@ function GrindEquipmentPicker({
   );
 }
 
+function VarietyPicker({
+  value,
+  onChange,
+  suggestions,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  suggestions: string[];
+}) {
+  const [inputValue, setInputValue] = useState('');
+
+  const addVariety = (variety: string) => {
+    const trimmed = variety.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInputValue('');
+  };
+
+  const removeVariety = (variety: string) => {
+    onChange(value.filter((v) => v !== variety));
+  };
+
+  const availableSuggestions = suggestions.filter((s) => !value.includes(s));
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (inputValue.trim()) addVariety(inputValue);
+    }
+    if (e.key === 'Backspace' && !inputValue && value.length > 0) {
+      removeVariety(value[value.length - 1]);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (availableSuggestions.includes(v)) {
+      addVariety(v);
+    } else {
+      setInputValue(v);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" role="list" aria-label="Selected varieties">
+          {value.map((v) => (
+            <span
+              key={v}
+              role="listitem"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+            >
+              {v}
+              <button
+                type="button"
+                onClick={() => removeVariety(v)}
+                aria-label={`Remove ${v}`}
+                className="ml-0.5 hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-full"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input
+        placeholder={value.length === 0 ? 'e.g. Geisha, SL28, Bourbon' : 'Add another variety…'}
+        list="coffee-variety-suggestions"
+        value={inputValue}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={() => { if (inputValue.trim()) addVariety(inputValue); }}
+        aria-label="Coffee variety input"
+        className="text-base"
+      />
+      <datalist id="coffee-variety-suggestions">
+        {availableSuggestions.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
+      <p className="text-xs text-muted-foreground">
+        Press Enter or select from suggestions to add · Backspace to remove last
+      </p>
+    </div>
+  );
+}
+
 function Stepper({
   value,
   onChange,
@@ -620,7 +709,7 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
     ? {
         coffeeProducer:         entry.coffeeProducer,
         countryOfOrigin:        entry.countryOfOrigin,
-        coffeeVariety:          entry.coffeeVariety ?? '',
+        coffeeVariety:          entry.coffeeVariety ?? [],
         grindCoarseness:        entry.grindCoarseness,
         grindEquipment:         entry.grindEquipment,
         brewingMethod:          entry.brewingMethod,
@@ -783,19 +872,20 @@ export function BrewingForm({ entry, onSubmit }: BrewingFormProps) {
               <FieldError message={errors.countryOfOrigin?.message} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="coffeeVariety">
+              <Label>
                 Variety <span className="text-muted-foreground text-xs">(optional)</span>
               </Label>
-              <Input
-                id="coffeeVariety"
-                placeholder="e.g. Geisha, Catuaí, Bourbon"
-                list="coffee-variety-suggestions"
-                {...register('coffeeVariety')}
-                className="text-base"
+              <Controller
+                control={control}
+                name="coffeeVariety"
+                render={({ field }) => (
+                  <VarietyPicker
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    suggestions={suggestions.coffeeVarieties}
+                  />
+                )}
               />
-              <datalist id="coffee-variety-suggestions">
-                {suggestions.coffeeVarieties.map((s) => <option key={s} value={s} />)}
-              </datalist>
             </div>
           </div>
         </div>

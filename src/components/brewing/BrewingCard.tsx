@@ -37,10 +37,12 @@ export function BrewingCard({ entry, isShared }: BrewingCardProps) {
                 <Badge variant="outline" className="text-xs shrink-0">
                   {entry.countryOfOrigin}
                 </Badge>
-                {entry.coffeeVariety && (
-                  <Badge variant="outline" className="text-xs shrink-0 italic font-normal">
-                    {entry.coffeeVariety}
-                  </Badge>
+                {entry.coffeeVariety && entry.coffeeVariety.length > 0 && (
+                  entry.coffeeVariety.map((v) => (
+                    <Badge key={v} variant="outline" className="text-xs shrink-0 italic font-normal">
+                      {v}
+                    </Badge>
+                  ))
                 )}
                 {isShared && (
                   <Badge variant="outline" className="text-xs shrink-0 flex items-center gap-1">

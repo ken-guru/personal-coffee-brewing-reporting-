@@ -54,8 +54,8 @@ export function BrewingDetail({ entry }: BrewingDetailProps) {
             <Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <span className="text-muted-foreground">{entry.countryOfOrigin}</span>
           </div>
-          {entry.coffeeVariety && (
-            <p className="text-sm text-muted-foreground mt-0.5 italic">{entry.coffeeVariety}</p>
+          {entry.coffeeVariety && entry.coffeeVariety.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-0.5 italic">{entry.coffeeVariety.join(', ')}</p>
           )}
         </div>
         <div className="text-right shrink-0">

@@ -94,6 +94,64 @@ describe('BrewingForm wizard', () => {
     });
   });
 
+  // ── Variety picker ────────────────────────────────────────────────────────
+
+  it('shows the variety input on step 1', () => {
+    renderForm();
+    expect(screen.getByLabelText(/coffee variety input/i)).toBeInTheDocument();
+  });
+
+  it('adds a variety when Enter is pressed in the variety input', async () => {
+    renderForm();
+    const varietyInput = screen.getByLabelText(/coffee variety input/i);
+    // Use a custom value not in static suggestions to test the Enter path
+    fireEvent.change(varietyInput, { target: { value: 'MyVariety' } });
+    fireEvent.keyDown(varietyInput, { key: 'Enter' });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /remove MyVariety/i })).toBeInTheDocument();
+    });
+  });
+
+  it('adds a variety when a datalist suggestion is selected', async () => {
+    renderForm();
+    const varietyInput = screen.getByLabelText(/coffee variety input/i);
+    // Simulate selecting a suggestion (onChange fires with the full value)
+    fireEvent.change(varietyInput, { target: { value: 'Geisha' } });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /remove Geisha/i })).toBeInTheDocument();
+    });
+  });
+
+  it('removes a variety when the remove button is clicked', async () => {
+    renderForm();
+    const varietyInput = screen.getByLabelText(/coffee variety input/i);
+    fireEvent.change(varietyInput, { target: { value: 'MyVariety' } });
+    fireEvent.keyDown(varietyInput, { key: 'Enter' });
+    await waitFor(() => screen.getByRole('button', { name: /remove MyVariety/i }));
+    fireEvent.click(screen.getByRole('button', { name: /remove MyVariety/i }));
+    expect(screen.queryByRole('button', { name: /remove MyVariety/i })).not.toBeInTheDocument();
+  });
+
+  it('allows adding multiple varieties', async () => {
+    renderForm();
+    const varietyInput = screen.getByLabelText(/coffee variety input/i);
+    fireEvent.change(varietyInput, { target: { value: 'SL28' } });
+    fireEvent.keyDown(varietyInput, { key: 'Enter' });
+    await waitFor(() => screen.getByRole('button', { name: /remove SL28/i }));
+    fireEvent.change(varietyInput, { target: { value: 'MyVariety' } });
+    fireEvent.keyDown(varietyInput, { key: 'Enter' });
+    await waitFor(() => screen.getByRole('button', { name: /remove MyVariety/i }));
+    expect(screen.getByRole('button', { name: /remove SL28/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove MyVariety/i })).toBeInTheDocument();
+  });
+
+  it('pre-populates variety picker when editing an existing entry with varieties', () => {
+    const entry = makeEntry({ coffeeVariety: ['SL28', 'SL34'] });
+    renderForm({ entry, onSubmit: vi.fn() });
+    expect(screen.getByRole('button', { name: /remove SL28/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove SL34/i })).toBeInTheDocument();
+  });
+
   // ── Step 2: Method & Grind ────────────────────────────────────────────────
 
   it('advances to step 2 when step 1 is valid', async () => {
