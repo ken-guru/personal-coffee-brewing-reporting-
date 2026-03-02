@@ -22,13 +22,14 @@ export function SharedBrewPage() {
       try {
         const res = await fetch(`/api/brews/${id}`);
 
-        // Detect non-JSON responses (e.g. HTML from deployment protection)
+        // Detect non-JSON responses (e.g. HTML from deployment protection or
+        // a cross-origin auth redirect that fetch followed automatically).
         const contentType = res.headers.get('content-type') ?? '';
         if (!contentType.includes('application/json')) {
           if (!cancelled) {
             setError(
-              res.status === 401
-                ? 'Authentication required. Please reload the page.'
+              res.status === 401 || res.redirected
+                ? 'Authentication required. Please reload the page or open the link in a regular browser window.'
                 : 'Unexpected response from server. The API may be unavailable.'
             );
           }

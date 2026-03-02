@@ -155,6 +155,24 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,
+      redirected: false,
+      headers: mockHeaders('text/html'),
+      json: () => Promise.reject(new Error('not json')),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderSharedBrewPage('abc-123');
+
+    await waitFor(() => {
+      expect(screen.getByText(/authentication required/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows auth error when fetch was redirected to an auth page (e.g. Vercel SSO)', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      redirected: true,
       headers: mockHeaders('text/html'),
       json: () => Promise.reject(new Error('not json')),
       clone: function () { return this; },
