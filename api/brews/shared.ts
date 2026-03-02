@@ -1,4 +1,4 @@
-import { list } from '@vercel/blob';
+import { list, get } from '@vercel/blob';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 type VReq = IncomingMessage & { body?: unknown; query?: Record<string, string | string[]> };
@@ -20,16 +20,17 @@ export default async function handler(req: VReq, res: VRes) {
   }
 
   try {
+    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'private' ? 'private' : 'public';
     const { blobs } = await list({ prefix: 'brew-', limit: 50 });
 
     // Fetch the content of each blob in parallel to get brew summaries
     const results = await Promise.all(
       blobs.map(async (blob) => {
         try {
-          const fetchRes = await fetch(blob.url);
-          if (!fetchRes.ok) return null;
-          const data = await fetchRes.json() as unknown;
-          return data;
+          const result = await get(blob.url, { access });
+          if (!result) return null;
+          const text = await new Response(result.stream).text();
+          return JSON.parse(text) as unknown;
         } catch {
           return null;
         }

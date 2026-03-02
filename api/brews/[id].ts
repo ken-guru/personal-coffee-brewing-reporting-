@@ -1,4 +1,4 @@
-import { list } from '@vercel/blob';
+import { get, BlobAccessError, BlobNotFoundError, BlobStoreNotFoundError, BlobStoreSuspendedError, BlobServiceNotAvailable, BlobServiceRateLimited } from '@vercel/blob';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 type VReq = IncomingMessage & { body?: unknown; query?: Record<string, string | string[]> };
@@ -25,26 +25,35 @@ export default async function handler(req: VReq, res: VRes) {
   }
 
   try {
-    const { blobs } = await list({ prefix: `brew-${id}.json`, limit: 1 });
-    const expectedName = `brew-${id}.json`;
-    const blob = blobs.find((b) => b.pathname === expectedName || b.pathname.endsWith(`/${expectedName}`));
+    const access: 'public' | 'private' = process.env.BLOB_ACCESS === 'private' ? 'private' : 'public';
+    const result = await get(`brew-${id}.json`, { access });
 
-    if (!blob) {
+    if (!result) {
       res.status(404).json({ error: 'Brew not found' });
       return;
     }
 
-    const fetchRes = await fetch(blob.url);
-    if (!fetchRes.ok) {
-      res.status(404).json({ error: 'Brew not found' });
-      return;
-    }
-
-    const data = await fetchRes.json() as unknown;
+    const text = await new Response(result.stream).text();
+    const data = JSON.parse(text) as unknown;
     res.status(200).json(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Error fetching shared brew:', message);
-    res.status(500).json({ error: 'Failed to fetch brew' });
+
+    if (err instanceof BlobAccessError) {
+      res.status(403).json({ error: 'Blob storage access denied' });
+    } else if (err instanceof BlobNotFoundError) {
+      res.status(404).json({ error: 'Brew not found' });
+    } else if (err instanceof BlobStoreNotFoundError) {
+      res.status(503).json({ error: 'Blob store not found' });
+    } else if (err instanceof BlobStoreSuspendedError) {
+      res.status(503).json({ error: 'Blob store is suspended' });
+    } else if (err instanceof BlobServiceNotAvailable) {
+      res.status(503).json({ error: 'Blob service temporarily unavailable' });
+    } else if (err instanceof BlobServiceRateLimited) {
+      res.status(429).json({ error: 'Rate limited, please try again later' });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch brew' });
+    }
   }
 }

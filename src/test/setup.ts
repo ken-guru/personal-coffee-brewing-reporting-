@@ -18,6 +18,21 @@ if (typeof window !== 'undefined') {
     })),
   });
 
+  // Provide a working localStorage mock. Some versions of jsdom expose the
+  // Storage interface but getItem/setItem/etc. are not callable in the test
+  // runner. Replacing it with a simple in-memory implementation avoids the
+  // "localStorage.X is not a function" errors.
+  const store: Record<string, string> = {};
+  const localStorageMock: Storage = {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => { store[key] = String(value); },
+    removeItem: (key: string) => { delete store[key]; },
+    clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() { return Object.keys(store).length; },
+  };
+  Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
+
   // Default fetch mock: returns a failed response to prevent real network calls in tests.
   // Individual tests can override this mock as needed.
   globalThis.fetch = vi.fn().mockResolvedValue({

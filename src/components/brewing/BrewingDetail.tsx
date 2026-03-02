@@ -145,7 +145,7 @@ export function BrewingDetail({ entry }: BrewingDetailProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             {entry.guestRatings.map((guest, idx) => (
-              <div key={guest.id} className="space-y-1 pb-3 border-b border-border last:border-0 last:pb-0">
+              <div key={guest.id ?? `guest-${idx}`} className="space-y-1 pb-3 border-b border-border last:border-0 last:pb-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">Guest {idx + 1}</span>
                   <StarRating value={guest.rating} readOnly size="sm" label={`Guest ${idx + 1} rating`} />

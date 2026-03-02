@@ -28,6 +28,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Never intercept API calls — let them go straight to the network
+  // so credentials (cookies) are handled by the browser and responses
+  // are never served from a stale cache.
+  if (url.pathname.startsWith('/api/')) return;
+
   // Network-first for navigation and HTML requests so that the latest
   // index.html (with up-to-date hashed asset references) is always fetched
   // when online, falling back to cache only when offline.

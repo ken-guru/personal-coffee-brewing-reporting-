@@ -3,12 +3,17 @@ import { describe, it, expect, vi, beforeEach, afterEach, type MockedFunction } 
 import type { IncomingMessage, ServerResponse } from 'http';
 import * as blobModule from '@vercel/blob';
 
-vi.mock('@vercel/blob', () => ({
-  put: vi.fn(),
-  list: vi.fn(),
-}));
+vi.mock('@vercel/blob', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vercel/blob')>();
+  return {
+    ...actual,
+    put: vi.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+  };
+});
 
-const mockList = blobModule.list as MockedFunction<typeof blobModule.list>;
+const mockGet = blobModule.get as MockedFunction<typeof blobModule.get>;
 
 const { default: handler } = await import('../[id].js');
 
@@ -51,6 +56,33 @@ const storedBrew = {
   sharedAt: '2024-03-15T10:00:00.000Z',
   brew: { coffeeProducer: 'Test Roaster', countryOfOrigin: 'Kenya', rating: 4, brewingMethod: 'pour-over' },
 };
+
+function makeGetResult(data: unknown) {
+  const json = JSON.stringify(data);
+  const encoded = new TextEncoder().encode(json);
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoded);
+      controller.close();
+    },
+  });
+  return {
+    statusCode: 200 as const,
+    stream,
+    headers: new Headers(),
+    blob: {
+      url: 'https://blob.store/brew-test.json',
+      downloadUrl: 'https://blob.store/brew-test.json?download=1',
+      pathname: 'brew-test.json',
+      contentDisposition: 'inline; filename="brew-test.json"',
+      cacheControl: 'public, max-age=31536000',
+      uploadedAt: new Date(),
+      etag: '"abc123"',
+      contentType: 'application/json',
+      size: encoded.byteLength,
+    },
+  };
+}
 
 // ── tests ─────────────────────────────────────────────────────────────────────
 
@@ -95,34 +127,8 @@ describe('GET /api/brews/[id]', () => {
     expect(lastBody()).toMatchObject({ error: 'Storage not configured' });
   });
 
-  it('returns 404 when no blob matches the exact name', async () => {
-    mockList.mockResolvedValueOnce({
-      blobs: [],
-      cursor: undefined,
-      hasMore: false,
-    });
-    const req = makeReq('GET', shareId);
-    const { res, lastStatus, lastBody } = makeRes();
-    await handler(req, res as unknown as Parameters<typeof handler>[1]);
-    expect(lastStatus()).toBe(404);
-    expect(lastBody()).toMatchObject({ error: 'Brew not found' });
-  });
-
-  it('returns 404 when the list returns a blob with a different name (prefix collision guard)', async () => {
-    // list() returns a blob whose name starts with the prefix but is not an exact match
-    mockList.mockResolvedValueOnce({
-      blobs: [
-        {
-          url: 'https://blob.store/brew-abc-123-def-extra.json',
-          pathname: `brew-${shareId}-extra.json`,
-          downloadUrl: '',
-          size: 0,
-          uploadedAt: new Date(),
-        },
-      ],
-      cursor: undefined,
-      hasMore: false,
-    });
+  it('returns 404 when blob is not found', async () => {
+    mockGet.mockResolvedValueOnce(null);
     const req = makeReq('GET', shareId);
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
@@ -131,24 +137,7 @@ describe('GET /api/brews/[id]', () => {
   });
 
   it('returns 200 with brew data on success', async () => {
-    mockList.mockResolvedValueOnce({
-      blobs: [
-        {
-          url: 'https://blob.store/brew-abc-123-def.json',
-          pathname: `brew-${shareId}.json`,
-          downloadUrl: '',
-          size: 0,
-          uploadedAt: new Date(),
-        },
-      ],
-      cursor: undefined,
-      hasMore: false,
-    });
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(storedBrew),
-    } as unknown as Response);
+    mockGet.mockResolvedValueOnce(makeGetResult(storedBrew));
 
     const req = makeReq('GET', shareId);
     const { res, lastStatus, lastBody } = makeRes();
@@ -160,12 +149,39 @@ describe('GET /api/brews/[id]', () => {
     expect(body.brew.coffeeProducer).toBe('Test Roaster');
   });
 
-  it('returns 500 when list() throws', async () => {
-    mockList.mockRejectedValueOnce(new Error('Blob error'));
+  it('returns 500 when get() throws', async () => {
+    mockGet.mockRejectedValueOnce(new Error('Blob error'));
     const req = makeReq('GET', shareId);
     const { res, lastStatus, lastBody } = makeRes();
     await handler(req, res as unknown as Parameters<typeof handler>[1]);
     expect(lastStatus()).toBe(500);
     expect((lastBody() as { error: string }).error).toMatch(/Failed to fetch brew/);
+  });
+
+  it('returns 403 when get() throws BlobAccessError', async () => {
+    mockGet.mockRejectedValueOnce(new blobModule.BlobAccessError());
+    const req = makeReq('GET', shareId);
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(403);
+    expect((lastBody() as { error: string }).error).toMatch(/access denied/i);
+  });
+
+  it('returns 503 when get() throws BlobStoreNotFoundError', async () => {
+    mockGet.mockRejectedValueOnce(new blobModule.BlobStoreNotFoundError());
+    const req = makeReq('GET', shareId);
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(503);
+    expect((lastBody() as { error: string }).error).toMatch(/not found/i);
+  });
+
+  it('returns 429 when get() throws BlobServiceRateLimited', async () => {
+    mockGet.mockRejectedValueOnce(new blobModule.BlobServiceRateLimited());
+    const req = makeReq('GET', shareId);
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(429);
+    expect((lastBody() as { error: string }).error).toMatch(/rate limited/i);
   });
 });

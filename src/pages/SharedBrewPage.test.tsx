@@ -33,6 +33,10 @@ const mockSharedBrew = {
   },
 };
 
+function mockHeaders(contentType = 'application/json') {
+  return { get: (name: string) => name.toLowerCase() === 'content-type' ? contentType : null };
+}
+
 describe('SharedBrewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,6 +52,7 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: mockHeaders(),
       json: () => Promise.resolve(mockSharedBrew),
       clone: function () { return this; },
     } as unknown as Response);
@@ -65,6 +70,7 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: false,
       status: 404,
+      headers: mockHeaders(),
       json: () => Promise.resolve({ error: 'Brew not found' }),
       clone: function () { return this; },
     } as unknown as Response);
@@ -80,6 +86,7 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: false,
       status: 404,
+      headers: mockHeaders(),
       json: () => Promise.resolve({}),
       clone: function () { return this; },
     } as unknown as Response);
@@ -95,6 +102,7 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: mockHeaders(),
       json: () => Promise.resolve(mockSharedBrew),
       clone: function () { return this; },
     } as unknown as Response);
@@ -110,6 +118,7 @@ describe('SharedBrewPage', () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: mockHeaders(),
       json: () => Promise.resolve(mockSharedBrew),
       clone: function () { return this; },
     } as unknown as Response);
@@ -123,6 +132,56 @@ describe('SharedBrewPage', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Back to home' }));
     await waitFor(() => {
       expect(screen.getByText('Home Page')).toBeInTheDocument();
+    });
+  });
+
+  it('shows an error when the API returns non-JSON (e.g. HTML from auth redirect)', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: mockHeaders('text/html'),
+      json: () => Promise.reject(new Error('not json')),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderSharedBrewPage('abc-123');
+
+    await waitFor(() => {
+      expect(screen.getByText(/unexpected response/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows auth error when API returns 401 with non-JSON content', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      redirected: false,
+      headers: mockHeaders('text/html'),
+      json: () => Promise.reject(new Error('not json')),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderSharedBrewPage('abc-123');
+
+    await waitFor(() => {
+      expect(screen.getByText(/authentication required/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows auth error when fetch was redirected to an auth page (e.g. Vercel SSO)', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      redirected: true,
+      headers: mockHeaders('text/html'),
+      json: () => Promise.reject(new Error('not json')),
+      clone: function () { return this; },
+    } as unknown as Response);
+
+    renderSharedBrewPage('abc-123');
+
+    await waitFor(() => {
+      expect(screen.getByText(/authentication required/i)).toBeInTheDocument();
     });
   });
 });
