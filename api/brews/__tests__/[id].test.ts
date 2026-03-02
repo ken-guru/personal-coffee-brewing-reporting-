@@ -176,6 +176,38 @@ describe('GET /api/brews/[id]', () => {
     expect((lastBody() as { error: string }).error).toMatch(/not found/i);
   });
 
+  it('returns 500 when blob contains malformed JSON', async () => {
+    const encoded = new TextEncoder().encode('this is not valid JSON {{{');
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoded);
+        controller.close();
+      },
+    });
+    mockGet.mockResolvedValueOnce({
+      statusCode: 200 as const,
+      stream,
+      headers: new Headers(),
+      blob: {
+        url: 'https://blob.store/brew-test.json',
+        downloadUrl: 'https://blob.store/brew-test.json?download=1',
+        pathname: 'brew-test.json',
+        contentDisposition: 'inline; filename="brew-test.json"',
+        cacheControl: 'public, max-age=31536000',
+        uploadedAt: new Date(),
+        etag: '"abc123"',
+        contentType: 'application/json',
+        size: encoded.byteLength,
+      },
+    });
+
+    const req = makeReq('GET', shareId);
+    const { res, lastStatus, lastBody } = makeRes();
+    await handler(req, res as unknown as Parameters<typeof handler>[1]);
+    expect(lastStatus()).toBe(500);
+    expect((lastBody() as { error: string }).error).toMatch(/Failed to parse brew data/);
+  });
+
   it('returns 429 when get() throws BlobServiceRateLimited', async () => {
     mockGet.mockRejectedValueOnce(new blobModule.BlobServiceRateLimited());
     const req = makeReq('GET', shareId);

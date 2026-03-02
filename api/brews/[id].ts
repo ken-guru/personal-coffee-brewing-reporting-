@@ -1,5 +1,6 @@
 import { get, BlobAccessError, BlobNotFoundError, BlobStoreNotFoundError, BlobStoreSuspendedError, BlobServiceNotAvailable, BlobServiceRateLimited } from '@vercel/blob';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { checkRateLimit, getClientIp, getBrewRateLimiter } from './_rateLimit.js';
 
 type VReq = IncomingMessage & { body?: unknown; query?: Record<string, string | string[]> };
 type VRes = ServerResponse & {
@@ -10,6 +11,12 @@ type VRes = ServerResponse & {
 export default async function handler(req: VReq, res: VRes) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const clientIp = getClientIp(req.headers as Record<string, string | string[] | undefined>);
+  if (!checkRateLimit(getBrewRateLimiter, clientIp)) {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
     return;
   }
 
@@ -34,7 +41,14 @@ export default async function handler(req: VReq, res: VRes) {
     }
 
     const text = await new Response(result.stream).text();
-    const data = JSON.parse(text) as unknown;
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.error('Failed to parse brew data from blob:', err);
+      res.status(500).json({ error: 'Failed to parse brew data' });
+      return;
+    }
     res.status(200).json(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

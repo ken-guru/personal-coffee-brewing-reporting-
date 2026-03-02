@@ -1,5 +1,6 @@
 import { put, BlobAccessError, BlobStoreNotFoundError, BlobStoreSuspendedError, BlobServiceNotAvailable, BlobServiceRateLimited } from '@vercel/blob';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { checkRateLimit, getClientIp, shareRateLimiter } from './_rateLimit.js';
 
 // Minimal helper types for Vercel Functions (no @vercel/node dependency needed)
 type VReq = IncomingMessage & { body?: unknown; query?: Record<string, string | string[]> };
@@ -9,16 +10,24 @@ type VRes = ServerResponse & {
 };
 
 function generateShareId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  // Fallback for older Node.js versions
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return crypto.randomUUID();
 }
 
 export default async function handler(req: VReq, res: VRes) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const clientIp = getClientIp(req.headers as Record<string, string | string[] | undefined>);
+  if (!checkRateLimit(shareRateLimiter, clientIp)) {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    return;
+  }
+
+  const contentType = (req.headers['content-type'] as string | undefined) ?? '';
+  if (!contentType.includes('application/json')) {
+    res.status(415).json({ error: 'Content-Type must be application/json' });
     return;
   }
 
@@ -46,22 +55,20 @@ export default async function handler(req: VReq, res: VRes) {
       return;
     }
 
-    // Build the share URL from the request headers first, before writing to storage
-    const proto = (req.headers['x-forwarded-proto'] as string | undefined) ?? 'https';
-    const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
-    if (!host) {
+    // Build the share URL from environment variables to prevent host header injection.
+    // Set APP_URL (e.g. https://myapp.vercel.app) or rely on VERCEL_URL that
+    // Vercel sets automatically for every deployment.
+    const baseUrl =
+      process.env.APP_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+    if (!baseUrl) {
       res.status(500).json({ error: 'Unable to determine server host for share URL' });
       return;
     }
-    const baseUrl = `${proto}://${host}`;
 
-    // Use the brew's own id as the share id so that /brew/:id and /shared/:id
-    // use the same identifier.  Fall back to a generated uuid only when the
-    // client does not supply one (e.g. direct API calls).
-    const shareId: string =
-      typeof body.id === 'string' && body.id.trim() !== ''
-        ? body.id.trim()
-        : generateShareId();
+    // Always generate a cryptographically random shareId independent of the
+    // brew's local UUID to prevent ID enumeration.
+    const shareId = generateShareId();
     const sharedAt = new Date().toISOString();
 
     // Store only anonymous brew data — exclude the user's local id and timestamps

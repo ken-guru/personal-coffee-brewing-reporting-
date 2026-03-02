@@ -1,5 +1,6 @@
 import { list, get } from '@vercel/blob';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { checkRateLimit, getClientIp, listBrewsRateLimiter } from './_rateLimit.js';
 
 type VReq = IncomingMessage & { body?: unknown; query?: Record<string, string | string[]> };
 type VRes = ServerResponse & {
@@ -10,6 +11,12 @@ type VRes = ServerResponse & {
 export default async function handler(req: VReq, res: VRes) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const clientIp = getClientIp(req.headers as Record<string, string | string[] | undefined>);
+  if (!checkRateLimit(listBrewsRateLimiter, clientIp)) {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
     return;
   }
 

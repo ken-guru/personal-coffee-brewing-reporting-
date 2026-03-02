@@ -1,5 +1,11 @@
 import { BrewingEntry } from '../types/brewing';
 
+// WARNING: All data stored here is held in plaintext localStorage and is
+// accessible to any script running on this page (including browser extensions
+// and any XSS payload). Do NOT store personally-identifiable information (PII)
+// or sensitive data in these entries. The current schema only holds non-sensitive
+// coffee-brewing metadata, which is acceptable. If the data model ever expands
+// to include PII, consider encrypting the payload before storing it here.
 const STORAGE_KEY = 'coffee-brewing-entries';
 
 export function getEntries(): BrewingEntry[] {
