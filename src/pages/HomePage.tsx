@@ -21,7 +21,7 @@ import {
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { entries } = useBrewingEntries();
+  const { entries, editEntry } = useBrewingEntries();
   const { brews: sharedBrews, loading: sharedLoading, error: sharedError } = useSharedBrews();
   const [duplicateTarget, setDuplicateTarget] = useState<BrewingEntry | null>(null);
   const [rateTarget, setRateTarget] = useState<BrewingEntry | null>(null);
@@ -245,6 +245,9 @@ export function HomePage() {
         entry={rateTarget}
         open={!!rateTarget}
         onClose={() => setRateTarget(null)}
+        onSave={(rating) => {
+          if (rateTarget) editEntry({ ...rateTarget, rating, updatedAt: new Date().toISOString() });
+        }}
       />
     </Layout>
   );

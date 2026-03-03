@@ -9,7 +9,7 @@ import type { BrewingEntry } from '../types/brewing';
 import { formatBrewingMethod } from '../lib/utils';
 
 export function UnratedBrewsPage() {
-  const { entries } = useBrewingEntries();
+  const { entries, editEntry } = useBrewingEntries();
   const [rateTarget, setRateTarget] = useState<BrewingEntry | null>(null);
 
   const unratedEntries = entries.filter((e) => e.rating === 0);
@@ -91,6 +91,9 @@ export function UnratedBrewsPage() {
           entry={rateTarget}
           open={!!rateTarget}
           onClose={() => setRateTarget(null)}
+          onSave={(rating) => {
+            if (rateTarget) editEntry({ ...rateTarget, rating, updatedAt: new Date().toISOString() });
+          }}
         />
       </div>
     </Layout>

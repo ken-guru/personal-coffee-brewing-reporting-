@@ -197,15 +197,17 @@ describe('HomePage', () => {
     expect(screen.queryByRole('heading', { name: "Rate Today's Brews" })).not.toBeInTheDocument();
   });
 
-  it('opens the rate modal when an unrated brew in the section is clicked', async () => {
+  it('removes brew from unrated section after rating it via the modal', async () => {
     const today = new Date().toISOString();
     const entry = makeEntry({ id: 'a', coffeeProducer: 'Click Roast', rating: 0, createdAt: today, updatedAt: today });
     localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
     renderHomePage();
     fireEvent.click(screen.getByRole('button', { name: /rate click roast brew/i }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /4 stars/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save rating/i }));
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: "Rate Today's Brews" })).not.toBeInTheDocument();
     });
-    expect(screen.getByText('Rate Brew')).toBeInTheDocument();
   });
 });

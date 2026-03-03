@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Clock, Droplets, Users, Coffee } from 'lucide-react';
 import type { BrewingEntry } from '../../types/brewing';
-import { useBrewingEntries } from '../../hooks/useBrewingEntries';
 import {
   Dialog,
   DialogContent,
@@ -17,10 +16,10 @@ interface RateBrewModalProps {
   entry: BrewingEntry | null;
   open: boolean;
   onClose: () => void;
+  onSave: (rating: number) => void;
 }
 
-export function RateBrewModal({ entry, open, onClose }: RateBrewModalProps) {
-  const { editEntry } = useBrewingEntries();
+export function RateBrewModal({ entry, open, onClose, onSave }: RateBrewModalProps) {
   const [rating, setRating] = useState(0);
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -32,7 +31,7 @@ export function RateBrewModal({ entry, open, onClose }: RateBrewModalProps) {
 
   const handleSave = () => {
     if (!entry || rating === 0) return;
-    editEntry({ ...entry, rating, updatedAt: new Date().toISOString() });
+    onSave(rating);
     setRating(0);
     onClose();
   };
