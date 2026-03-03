@@ -16,7 +16,7 @@ export function AddBrewPage() {
 
   // When duplicating, pre-fill all fields except identity, rating and guest ratings.
   const formEntry: BrewingEntry | undefined = duplicateFrom
-    ? { ...duplicateFrom, id: 'duplicate', createdAt: '', updatedAt: '', rating: 0, guestRatings: [] }
+    ? { ...duplicateFrom, id: crypto.randomUUID(), createdAt: '', updatedAt: '', rating: 0, guestRatings: [] }
     : undefined;
 
   const handleSubmit = (data: BrewFormValues) => {
