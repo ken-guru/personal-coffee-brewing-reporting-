@@ -9,8 +9,6 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Label } from '../ui/Label';
-import { StarRating } from '../ui/StarRating';
-import { GuestRatings } from './GuestRatings';
 import { cn } from '../../lib/utils';
 import { Check, Minus, Plus } from 'lucide-react';
 import {
@@ -48,15 +46,7 @@ const brewSchema = z.object({
   brewMinutes: z.coerce.number().min(0).max(60),
   brewSeconds: z.coerce.number().min(0).max(59),
   brewTimeNotApplicable: z.boolean(),
-  rating: z.number().min(0).max(5),
   comment: z.string().optional(),
-  guestRatings: z.array(
-    z.object({
-      id: z.string(),
-      rating: z.number().min(1).max(5),
-      comment: z.string().optional(),
-    })
-  ),
 });
 
 export type BrewFormValues = z.infer<typeof brewSchema>;
@@ -146,13 +136,9 @@ const stepSchemas = [
     millilitersOfWater: z.number().min(1, 'Must be at least 1ml').max(10000, 'Max 10000ml'),
     numberOfPeople:     z.number().min(1, 'At least 1 person').max(100, 'Max 100 people'),
   }),
-  // Step 3 – Rating
-  z.object({
-    rating: z.number().min(0).max(5),
-  }),
 ] as const;
 
-const STEPS = ['The Coffee', 'Method & Grind', 'The Brew', 'Rate It'];
+const STEPS = ['The Coffee', 'Method & Grind', 'The Brew'];
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -722,9 +708,7 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
         brewMinutes:            entry.brewTimeSeconds !== null ? Math.floor(entry.brewTimeSeconds / 60) : 0,
         brewSeconds:            entry.brewTimeSeconds !== null ? entry.brewTimeSeconds % 60 : 0,
         brewTimeNotApplicable:  entry.brewTimeSeconds === null,
-        rating:                 entry.rating,
         comment:                entry.comment ?? '',
-        guestRatings:           entry.guestRatings,
       }
     : {
         coffeeProducer:         formDefaults.coffeeProducer,
@@ -741,9 +725,7 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
         brewMinutes:            formDefaults.brewMinutes,
         brewSeconds:            formDefaults.brewSeconds,
         brewTimeNotApplicable:  formDefaults.brewTimeNotApplicable,
-        rating:                 0,
         comment:                '',
-        guestRatings:           [],
       };
 
   const {
@@ -759,7 +741,6 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
   } = useForm<BrewFormValues>({ resolver: zodResolver(brewSchema), defaultValues });
 
   const brewingMethod      = watch('brewingMethod');
-  const numberOfPeople     = watch('numberOfPeople');
   const gramsOfCoffee      = watch('gramsOfCoffee');
   const milliliters        = watch('millilitersOfWater');
   const brewMinutes        = watch('brewMinutes');
@@ -789,9 +770,7 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
       brewMinutes:            formDefaults.brewMinutes,
       brewSeconds:            formDefaults.brewSeconds,
       brewTimeNotApplicable:  formDefaults.brewTimeNotApplicable,
-      rating:                 0,
       comment:                '',
-      guestRatings:           [],
     });
   }, [entry, hasLocalData, defaultsLoading, isDirty, formDefaults, reset]);
 
@@ -1091,29 +1070,6 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
             />
             <FieldError message={errors.numberOfPeople?.message} />
           </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Rate It ──────────────────────────────────────────────── */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <StepHeading emoji="⭐" title="Rate It" subtitle="How was that cup?" />
-
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-center text-foreground">
-              Your Rating <span className="text-destructive" aria-hidden="true">*</span>
-            </p>
-            <div className="flex justify-center">
-              <Controller
-                control={control}
-                name="rating"
-                render={({ field: { value, onChange } }) => (
-                  <StarRating value={value} onChange={onChange} size="lg" label="Overall rating" />
-                )}
-              />
-            </div>
-            <FieldError message={errors.rating?.message} />
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="comment">
@@ -1126,19 +1082,6 @@ export function BrewingForm({ entry, initialStep, onSubmit }: BrewingFormProps) 
               {...register('comment')}
             />
           </div>
-
-          {/* Guest ratings — only shown when multiple people were served */}
-          {numberOfPeople > 1 && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 border-t border-border pt-4">
-                <h3 className="text-base font-semibold text-foreground">Guest Ratings</h3>
-                <span className="text-xs text-muted-foreground">
-                  ({numberOfPeople - 1} guest{numberOfPeople > 2 ? 's' : ''} can rate)
-                </span>
-              </div>
-              <GuestRatings control={control} />
-            </section>
-          )}
         </div>
       )}
 

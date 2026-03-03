@@ -172,4 +172,40 @@ describe('HomePage', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
+
+  it('shows "Rate Today\'s Brews" section for unrated entries created today', () => {
+    const today = new Date().toISOString();
+    const entry = makeEntry({ id: 'a', coffeeProducer: 'Fresh Roast', rating: 0, createdAt: today, updatedAt: today });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    renderHomePage();
+    expect(screen.getByRole('heading', { name: "Rate Today's Brews" })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /rate fresh roast brew/i })).toBeInTheDocument();
+  });
+
+  it('does not show unrated section for entries from previous days', () => {
+    const entry = makeEntry({ id: 'a', coffeeProducer: 'Old Roast', rating: 0, createdAt: '2024-01-01T10:00:00.000Z', updatedAt: '2024-01-01T10:00:00.000Z' });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    renderHomePage();
+    expect(screen.queryByRole('heading', { name: "Rate Today's Brews" })).not.toBeInTheDocument();
+  });
+
+  it('does not show unrated section when all today\'s brews are rated', () => {
+    const today = new Date().toISOString();
+    const entry = makeEntry({ id: 'a', coffeeProducer: 'Rated Roast', rating: 4, createdAt: today, updatedAt: today });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    renderHomePage();
+    expect(screen.queryByRole('heading', { name: "Rate Today's Brews" })).not.toBeInTheDocument();
+  });
+
+  it('opens the rate modal when an unrated brew in the section is clicked', async () => {
+    const today = new Date().toISOString();
+    const entry = makeEntry({ id: 'a', coffeeProducer: 'Click Roast', rating: 0, createdAt: today, updatedAt: today });
+    localStorage.setItem('coffee-brewing-entries', JSON.stringify([entry]));
+    renderHomePage();
+    fireEvent.click(screen.getByRole('button', { name: /rate click roast brew/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Rate Brew')).toBeInTheDocument();
+  });
 });

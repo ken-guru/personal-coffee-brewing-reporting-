@@ -37,9 +37,9 @@ export function AddBrewPage() {
       waterSource: data.waterSource,
       numberOfPeople: data.numberOfPeople,
       brewTimeSeconds: data.brewTimeNotApplicable ? null : data.brewMinutes * 60 + data.brewSeconds,
-      rating: data.rating,
+      rating: 0,
       comment: data.comment,
-      guestRatings: data.guestRatings,
+      guestRatings: [],
     });
     navigate('/');
   };
@@ -55,7 +55,7 @@ export function AddBrewPage() {
           </Button>
           <h1 className="text-2xl font-bold text-foreground">Log a Brew</h1>
         </div>
-        <BrewingForm entry={formEntry} initialStep={duplicateFrom ? 3 : undefined} onSubmit={handleSubmit} />
+        <BrewingForm entry={formEntry} initialStep={duplicateFrom ? 2 : undefined} onSubmit={handleSubmit} />
       </div>
     </Layout>
   );

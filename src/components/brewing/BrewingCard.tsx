@@ -68,8 +68,12 @@ export function BrewingCard({ entry, isShared, onDuplicate }: BrewingCardProps) 
                   </div>
                 )}
               </div>
-              <div className="shrink-0">
-                <StarRating value={entry.rating} readOnly size="sm" />
+              <div className="shrink-0 flex flex-col items-end gap-1">
+                {entry.rating === 0 ? (
+                  <span className="text-xs text-muted-foreground italic">Unrated</span>
+                ) : (
+                  <StarRating value={entry.rating} readOnly size="sm" />
+                )}
               </div>
             </div>
 

@@ -41,13 +41,13 @@ describe('BrewingForm wizard', () => {
 
   // ── Progress indicator ────────────────────────────────────────────────────
 
-  it('renders all 4 step labels in the progress indicator', () => {
+  it('renders all 3 step labels in the progress indicator', () => {
     renderForm();
     const nav = screen.getByRole('navigation', { name: /form progress/i });
     expect(nav).toHaveTextContent('The Coffee');
     expect(nav).toHaveTextContent('Method & Grind');
     expect(nav).toHaveTextContent('The Brew');
-    expect(nav).toHaveTextContent('Rate It');
+    expect(nav).not.toHaveTextContent('Rate It');
   });
 
   it('marks step 1 as the current step initially', () => {
@@ -238,28 +238,13 @@ describe('BrewingForm wizard', () => {
     expect(screen.getByText(/30g coffee · 500ml water/)).toBeInTheDocument();
   });
 
-  // ── Step 4: Rate It ───────────────────────────────────────────────────────
-
-  it('reaches step 4 and shows the star rating on step 4', async () => {
-    renderForm();
-    fillStep1AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
-    fillStep2AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
-    fireEvent.click(screen.getByRole('button', { name: /next/i }));
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /rate it/i })).toBeInTheDocument();
-    });
-    expect(screen.getByRole('group', { name: /overall rating/i })).toBeInTheDocument();
-  });
+  // ── Step 3: The Brew (last step) ──────────────────────────────────────────
 
   it('shows "Log Brew" submit button on the last step', async () => {
     renderForm();
     fillStep1AndAdvance();
     await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
     fillStep2AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
-    fireEvent.click(screen.getByRole('button', { name: /next/i }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /log brew/i })).toBeInTheDocument();
     });
@@ -272,22 +257,9 @@ describe('BrewingForm wizard', () => {
     fillStep1AndAdvance();
     await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
     fillStep2AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
-    fireEvent.click(screen.getByRole('button', { name: /next/i }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /update brew/i })).toBeInTheDocument();
     });
-  });
-
-  it('does not show guest ratings section when numberOfPeople is 1 on step 4', async () => {
-    renderForm();
-    fillStep1AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
-    fillStep2AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
-    fireEvent.click(screen.getByRole('button', { name: /next/i }));
-    await waitFor(() => screen.getByRole('heading', { name: /rate it/i }));
-    expect(screen.queryByText(/guest ratings/i)).not.toBeInTheDocument();
   });
 
   // ── Edit mode pre-population ──────────────────────────────────────────────
@@ -577,14 +549,11 @@ describe('BrewingForm wizard', () => {
     fillStep1AndAdvance();
     await waitFor(() => screen.getByRole('heading', { name: /method & grind/i }));
     fillStep2AndAdvance();
-    await waitFor(() => screen.getByRole('heading', { name: /the brew/i }));
-    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    // The Brew is the last step — Log Brew should now be visible
     await waitFor(() => screen.getByRole('button', { name: /log brew/i }));
-    // Do NOT click any star — rating stays at 0
     fireEvent.click(screen.getByRole('button', { name: /log brew/i }));
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledOnce();
     });
-    expect(onSubmit.mock.calls[0][0].rating).toBe(0);
   });
 });

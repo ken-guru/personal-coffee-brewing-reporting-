@@ -21,6 +21,7 @@
     { "source": "/new", "destination": "/index.html" },
     { "source": "/brew/:id", "destination": "/index.html" },
     { "source": "/brew/:id/edit", "destination": "/index.html" },
-    { "source": "/shared/:id", "destination": "/index.html" }
+    { "source": "/shared/:id", "destination": "/index.html" },
+    { "source": "/unrated", "destination": "/index.html" }
   ]
 }

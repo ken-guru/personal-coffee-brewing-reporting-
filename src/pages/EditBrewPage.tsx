@@ -41,9 +41,10 @@ export function EditBrewPage() {
       waterSource: data.waterSource,
       numberOfPeople: data.numberOfPeople,
       brewTimeSeconds: data.brewTimeNotApplicable ? null : data.brewMinutes * 60 + data.brewSeconds,
-      rating: data.rating,
+      // Preserve existing rating and guest ratings — rating is managed separately
+      rating: entry.rating,
       comment: data.comment,
-      guestRatings: data.guestRatings,
+      guestRatings: entry.guestRatings,
     });
     navigate(`/brew/${entry.id}`);
   };

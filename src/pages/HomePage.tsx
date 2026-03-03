@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Coffee, TrendingUp, Globe, Copy } from 'lucide-react';
+import { Plus, Coffee, TrendingUp, Globe, Copy, Star } from 'lucide-react';
 import { useBrewingEntries } from '../hooks/useBrewingEntries';
 import { useSharedBrews } from '../hooks/useSharedBrews';
 import { BrewingCard } from '../components/brewing/BrewingCard';
 import { SharedBrewCard } from '../components/brewing/SharedBrewCard';
+import { RateBrewModal } from '../components/brewing/RateBrewModal';
 import { Button } from '../components/ui/Button';
 import { Layout } from '../components/layout/Layout';
 import { BrewingEntry } from '../types/brewing';
@@ -22,6 +23,7 @@ export function HomePage() {
   const { entries } = useBrewingEntries();
   const { brews: sharedBrews, loading: sharedLoading, error: sharedError } = useSharedBrews();
   const [duplicateTarget, setDuplicateTarget] = useState<BrewingEntry | null>(null);
+  const [rateTarget, setRateTarget] = useState<BrewingEntry | null>(null);
 
   // IDs of local entries that have been shared to the community
   const localEntryIds = new Set(entries.map((e) => e.id));
@@ -31,6 +33,14 @@ export function HomePage() {
 
   // Community brews that are NOT duplicates of local entries
   const communityBrews = sharedBrews.filter((s) => !localEntryIds.has(s.shareId));
+
+  // Unrated brews from today only
+  const todayStr = new Date().toDateString();
+  const todayUnrated = entries.filter(
+    (e) => e.rating === 0 && new Date(e.createdAt).toDateString() === todayStr
+  );
+  const UNRATED_MAX = 5;
+  const unratedToShow = todayUnrated.slice(0, UNRATED_MAX);
 
   const avgRating =
     entries.length > 0
@@ -51,6 +61,48 @@ export function HomePage() {
   return (
     <Layout>
       <div className="space-y-8">
+        {/* Unrated brews section — today's brews awaiting a rating */}
+        {unratedToShow.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-foreground">Rate Today's Brews</h2>
+              </div>
+              {todayUnrated.length > UNRATED_MAX && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/unrated">View all {todayUnrated.length}</Link>
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {unratedToShow.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => setRateTarget(entry)}
+                  className="w-full text-left rounded-xl border border-border bg-card hover:border-primary/50 transition-colors px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Rate ${entry.coffeeProducer} brew`}
+                >
+                  <span className="font-medium text-card-foreground text-sm">{entry.coffeeProducer}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {entry.brewingMethod === 'other' && entry.brewingMethodCustom
+                      ? entry.brewingMethodCustom
+                      : entry.brewingMethod.replace(/-/g, ' ')}
+                  </span>
+                  <span className="ml-2 text-xs text-primary font-medium">Tap to rate →</span>
+                </button>
+              ))}
+            </div>
+            {todayUnrated.length > UNRATED_MAX && (
+              <p className="text-xs text-muted-foreground text-center">
+                Showing {UNRATED_MAX} of {todayUnrated.length} unrated brews today.{' '}
+                <Link to="/unrated" className="underline">View all unrated brews</Link>
+              </p>
+            )}
+          </div>
+        )}
+
         {/* My Brews section */}
         <div className="space-y-6">
           {/* Page header */}
@@ -172,7 +224,7 @@ export function HomePage() {
             <DialogTitle>Duplicate Brew</DialogTitle>
             <DialogDescription>
               Duplicate <strong>{duplicateTarget?.coffeeProducer}</strong>? All brew details will be
-              copied and you will be taken to the rating step.
+              copied into a new brew for you to adjust and log.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -186,6 +238,13 @@ export function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Rating modal for unrated brews */}
+      <RateBrewModal
+        entry={rateTarget}
+        open={!!rateTarget}
+        onClose={() => setRateTarget(null)}
+      />
     </Layout>
   );
 }

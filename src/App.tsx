@@ -6,6 +6,7 @@ import { AddBrewPage } from './pages/AddBrewPage';
 import { EditBrewPage } from './pages/EditBrewPage';
 import { DetailPage } from './pages/DetailPage';
 import { SharedBrewPage } from './pages/SharedBrewPage';
+import { UnratedBrewsPage } from './pages/UnratedBrewsPage';
 import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/brew/:id" element={<DetailPage />} />
         <Route path="/brew/:id/edit" element={<EditBrewPage />} />
         <Route path="/shared/:id" element={<SharedBrewPage />} />
+        <Route path="/unrated" element={<UnratedBrewsPage />} />
       </Routes>
       <PWAInstallPrompt />
       <Analytics />

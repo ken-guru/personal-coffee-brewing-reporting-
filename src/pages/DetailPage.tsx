@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Edit2, Trash2, ChevronLeft, Share2, Copy, Check } from 'lucide-react';
+import { Edit2, Trash2, ChevronLeft, Share2, Copy, Check, Star } from 'lucide-react';
 import { useBrewingEntries } from '../hooks/useBrewingEntries';
 import { BrewingDetail } from '../components/brewing/BrewingDetail';
+import { RateBrewModal } from '../components/brewing/RateBrewModal';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import {
@@ -21,6 +22,7 @@ export function DetailPage() {
   const { entries, removeEntry } = useBrewingEntries();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -97,10 +99,17 @@ export function DetailPage() {
             </Link>
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
-              <Share2 className="h-4 w-4 mr-1" aria-hidden="true" />
-              {sharing ? 'Sharing…' : 'Share'}
-            </Button>
+            {entry.rating === 0 ? (
+              <Button variant="outline" size="sm" onClick={() => setRateOpen(true)}>
+                <Star className="h-4 w-4 mr-1" aria-hidden="true" />
+                Rate
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
+                <Share2 className="h-4 w-4 mr-1" aria-hidden="true" />
+                {sharing ? 'Sharing…' : 'Share'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setDuplicateOpen(true)}>
               <Copy className="h-4 w-4 mr-1" aria-hidden="true" />
               Duplicate
@@ -191,6 +200,20 @@ export function DetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Rating modal */}
+        <RateBrewModal
+          entry={entry}
+          open={rateOpen}
+          onClose={() => setRateOpen(false)}
+        />
+
+        {/* Unrated note */}
+        {entry.rating === 0 && (
+          <p className="text-sm text-muted-foreground bg-muted rounded-lg px-4 py-3">
+            This brew is <strong>unrated</strong>. Rate it first to unlock sharing.
+          </p>
+        )}
 
         <BrewingDetail entry={entry} />
       </div>
