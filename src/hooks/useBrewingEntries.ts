@@ -2,13 +2,16 @@ import { useState, useCallback } from 'react';
 import { BrewingEntry } from '../types/brewing';
 import { getEntries, saveEntry, updateEntry, deleteEntry, deleteEntries } from '../lib/storage';
 
+const byNewest = (a: BrewingEntry, b: BrewingEntry) =>
+  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
 export function useBrewingEntries() {
   const [entries, setEntries] = useState<BrewingEntry[]>(() =>
-    getEntries().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    getEntries().sort(byNewest)
   );
 
   const refresh = useCallback(() => {
-    setEntries(getEntries().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setEntries(getEntries().sort(byNewest));
   }, []);
 
   const addEntry = useCallback((entry: BrewingEntry) => {

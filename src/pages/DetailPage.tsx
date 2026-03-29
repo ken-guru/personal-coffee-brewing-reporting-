@@ -89,6 +89,14 @@ export function DetailPage() {
     }
   };
 
+  const handleShareDialogClose = () => {
+    setShareOpen(false);
+    if (sharedEntryId && !shareError) {
+      removeEntry(sharedEntryId);
+      navigate('/');
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -167,16 +175,7 @@ export function DetailPage() {
         </Dialog>
 
         {/* Share result dialog */}
-        <Dialog open={shareOpen} onOpenChange={(open) => {
-          if (!open) {
-            setShareOpen(false);
-            // Remove the brew from local storage and navigate home — it now lives in the community store
-            if (sharedEntryId && !shareError) {
-              removeEntry(sharedEntryId);
-              navigate('/');
-            }
-          }
-        }}>
+        <Dialog open={shareOpen} onOpenChange={(open) => { if (!open) handleShareDialogClose(); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{shareError ? 'Sharing failed' : 'Brew shared!'}</DialogTitle>
@@ -201,13 +200,7 @@ export function DetailPage() {
               </div>
             )}
             <DialogFooter>
-              <Button onClick={() => {
-                setShareOpen(false);
-                if (sharedEntryId && !shareError) {
-                  removeEntry(sharedEntryId);
-                  navigate('/');
-                }
-              }}>Close</Button>
+              <Button onClick={handleShareDialogClose}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
