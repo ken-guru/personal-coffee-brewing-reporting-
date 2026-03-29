@@ -16,7 +16,7 @@ export function MassActionToolbar({ selectedCount, sharing, onShare, onCancel }:
       className="fixed bottom-0 inset-x-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm shadow-lg transform transition-transform duration-200 ease-out translate-y-0"
     >
       <div className="container mx-auto max-w-3xl flex items-center justify-between px-4 py-3 gap-3">
-        <span className="text-sm font-medium text-foreground">
+        <span className="text-sm font-medium text-foreground" aria-live="polite" aria-atomic="true">
           {selectedCount} brew{selectedCount !== 1 ? 's' : ''} selected
         </span>
         <div className="flex items-center gap-2">
@@ -25,6 +25,7 @@ export function MassActionToolbar({ selectedCount, sharing, onShare, onCancel }:
             size="sm"
             onClick={onShare}
             disabled={sharing || selectedCount === 0}
+            aria-busy={sharing}
           >
             {sharing ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" />

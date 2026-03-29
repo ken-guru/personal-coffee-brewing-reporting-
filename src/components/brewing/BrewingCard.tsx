@@ -5,6 +5,7 @@ import { Card, CardContent } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { StarRating } from '../ui/StarRating';
 import { formatTime, formatBrewingMethod, formatWaterSource } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 
 interface BrewingCardProps {
   entry: BrewingEntry;
@@ -25,13 +26,23 @@ export function BrewingCard({ entry, isShared, onDuplicate, selectionMode, selec
   const ratio = (entry.millilitersOfWater / entry.gramsOfCoffee).toFixed(1);
 
   const cardContent = (
-    <Card className={`transition-colors cursor-pointer ${selectionMode && selected ? 'border-primary ring-1 ring-primary' : 'hover:border-primary/50'}`}>
+    <Card className={cn(
+      'transition-colors cursor-pointer',
+      selectionMode && selected ? 'border-primary ring-1 ring-primary' : 'hover:border-primary/50'
+    )}>
       <CardContent className="pt-4">
         <div className="flex items-start justify-between gap-3">
-          {selectionMode && (
+          {selectionMode && onToggleSelect && (
             <div className="shrink-0 flex items-center pt-0.5">
               <div
-                className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${selected ? 'bg-primary border-primary' : 'border-input bg-background'}`}
+                role="checkbox"
+                aria-checked={!!selected}
+                aria-label={`${entry.coffeeProducer} brew`}
+                tabIndex={-1}
+                className={cn(
+                  'h-5 w-5 rounded border-2 flex items-center justify-center transition-colors',
+                  selected ? 'bg-primary border-primary' : 'border-input bg-background'
+                )}
               >
                 {selected && <Check className="h-3 w-3 text-primary-foreground" aria-hidden="true" />}
               </div>

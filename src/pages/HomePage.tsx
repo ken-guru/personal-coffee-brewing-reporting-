@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Coffee, TrendingUp, Globe, Copy, Star, CheckSquare } from 'lucide-react';
 import { useBrewingEntries } from '../hooks/useBrewingEntries';
@@ -65,7 +65,10 @@ export function HomePage() {
   };
 
   // Only rated brews can be shared
-  const shareableEntries = entries.filter((e) => e.rating !== 0);
+  const shareableEntries = useMemo(
+    () => entries.filter((e) => e.rating !== 0),
+    [entries]
+  );
 
   const toggleSelectionMode = useCallback(() => {
     setSelectionMode((prev) => {
@@ -86,12 +89,17 @@ export function HomePage() {
     });
   }, []);
 
+  const shareableIds = useMemo(
+    () => new Set(shareableEntries.map((e) => e.id)),
+    [shareableEntries]
+  );
+
   const toggleSelectAll = useCallback(() => {
     setSelectedIds((prev) => {
-      if (prev.size === shareableEntries.length) return new Set();
-      return new Set(shareableEntries.map((e) => e.id));
+      if (prev.size === shareableIds.size) return new Set();
+      return new Set(shareableIds);
     });
-  }, [shareableEntries]);
+  }, [shareableIds]);
 
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
@@ -213,14 +221,19 @@ export function HomePage() {
           {/* Select all / Deselect all when in selection mode */}
           {selectionMode && (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleSelectAll}
+                aria-label={selectedIds.size === shareableEntries.length ? 'Deselect all shareable brews' : 'Select all shareable brews'}
+              >
                 {selectedIds.size === shareableEntries.length ? 'Deselect All' : 'Select All'}
               </Button>
-              {selectedIds.size > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {selectedIds.size} of {shareableEntries.length} rated brew{shareableEntries.length !== 1 ? 's' : ''} selected
-                </span>
-              )}
+              <span className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
+                {selectedIds.size > 0
+                  ? `${selectedIds.size} of ${shareableEntries.length} rated brew${shareableEntries.length !== 1 ? 's' : ''} selected`
+                  : `${shareableEntries.length} rated brew${shareableEntries.length !== 1 ? 's' : ''} available`}
+              </span>
             </div>
           )}
 
