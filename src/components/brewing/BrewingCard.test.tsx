@@ -137,4 +137,57 @@ describe('BrewingCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /duplicate/i }));
     expect(onDuplicate).toHaveBeenCalledOnce();
   });
+
+  it('shows a checkbox when in selection mode', () => {
+    const entry = makeEntry();
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} selectionMode selected={false} onToggleSelect={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: /select blue bottle brew/i })).toBeInTheDocument();
+  });
+
+  it('renders a select button instead of a link in selection mode', () => {
+    const entry = makeEntry();
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} selectionMode selected={false} onToggleSelect={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select blue bottle brew/i })).toBeInTheDocument();
+  });
+
+  it('calls onToggleSelect when clicked in selection mode', () => {
+    const onToggleSelect = vi.fn();
+    const entry = makeEntry({ id: 'sel-1' });
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} selectionMode selected={false} onToggleSelect={onToggleSelect} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /select blue bottle brew/i }));
+    expect(onToggleSelect).toHaveBeenCalledWith('sel-1');
+  });
+
+  it('shows deselect label when selected', () => {
+    const entry = makeEntry();
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} selectionMode selected onToggleSelect={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: /deselect blue bottle brew/i })).toBeInTheDocument();
+  });
+
+  it('does not show duplicate button when in selection mode', () => {
+    const entry = makeEntry();
+    render(
+      <MemoryRouter>
+        <BrewingCard entry={entry} selectionMode selected={false} onToggleSelect={() => {}} onDuplicate={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: /duplicate/i })).not.toBeInTheDocument();
+  });
 });
